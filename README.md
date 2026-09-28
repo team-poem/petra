@@ -5,7 +5,7 @@
 
 ## 읽는 순서
 
-1. `AGENTS.md` — 계약. 무엇이 강제되고, 언제 멈추고, 이벤트를 어떻게 쓰는가. (`CLAUDE.md` 는 심링크)
+1. `AGENTS.md` — 계약. 무엇이 강제되고, 언제 멈추고, 이벤트를 어떻게 쓰는가.
 2. 이 문서 — 구조, 명령, 데이터 형식, 흐름.
 3. 세션 시작 시 주입되는 협업 현황(digest). 훅이 없으면 `sh scripts/collab.sh digest --fetch`.
 
@@ -29,7 +29,7 @@
 ## 구조
 
 ```
-AGENTS.md                 계약 + sobaya 가 읽는 App facts (- Test:). CLAUDE.md 는 심링크
+AGENTS.md                 계약 + sobaya 가 읽는 App facts (- Test:)
 collab/
   active/<slug>/claim.md  브랜치 하나 = 디렉토리 하나. 브랜치 산출물(spec.md, failed-test.md …)도 여기
   journal/                이벤트 로그. append-only. plans/ 아래는 보관된 sobaya plan

@@ -2,7 +2,7 @@
 branch: codex/remove-claude-md
 owner: Kangmin_Kim
 started: 2026-09-28
-status: active
+status: done
 goal: CLAUDE.md 심링크를 제거한다
 next:
 ---

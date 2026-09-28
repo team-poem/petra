@@ -12,7 +12,7 @@ sobaya 는 바꾸지 않는다 (amazon 결정, [sobaya#4](https://github.com/tea
 | review 가 HEAD 에 **바인딩** | plan 이동 커밋이 review 뒤에 오므로 어긋난다. `pr-body` 가 review HEAD 와 현재 HEAD 를 적어 사람이 확인 | `pr-body` |
 | 루트에 `AGENTS.md` 만 (Claude 는 `CLAUDE.md` 를 읽음) | `attach` 가 클론에 `CLAUDE.md -> AGENTS.md` 심링크를 만들고 `.git/info/exclude` 에 넣는다 | `attach-sobaya.sh` |
 | 루트에 `.claude/` 가 없고 gitignore 도 없음 | 루트 세션 어댑터와 `settings.local.json` 을 `.git/info/exclude` 로 숨긴다 | `attach-sobaya.sh` |
-| `_contract_text` 가 **심링크를 거부** | 앱의 `AGENTS.md` 가 실제 파일, `CLAUDE.md` 가 심링크 | 템플릿 구조, `install-into.sh` |
+| `_contract_text` 가 **심링크를 거부** | 앱의 `AGENTS.md` 를 실제 파일로 유지 | 템플릿 구조, `install-into.sh` |
 | `contract_clean` 이 **untracked 포함 깨끗한 트리** 요구 | 저널·claim·lock 을 커밋한 뒤 sobaya 명령. `.claude/cache/` 는 gitignore 라 안 걸림 | handoff 순서 |
 | 항목 진행 중 HEAD 가 바뀌면 **죽는다** | pulse 는 lock 또는 `state.active` 가 있으면 따라잡기를 보류 | pulse |
 

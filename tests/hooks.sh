@@ -152,7 +152,7 @@ check "git 훅 4개 존재·실행 가능"             "for h in pre-commit pre-
 check "settings.json ≡ .codex/hooks.json"   "[ \"\$c1\" = \"\$c2\" ] && [ -n \"\$c1\" ]"
 check "가리키는 스크립트가 모두 존재·실행 가능" "for s in \$(printf '%s\n' \"\$c2\" | awk '{print \$2}' | sort -u); do [ -x \"\$SRC/\$s\" ] || exit 1; done"
 check ".claude/skills → .agents/skills 심링크" "[ -L '$SRC/.claude/skills' ] && [ -f '$SRC/.claude/skills/start-work/SKILL.md' ]"
-check "CLAUDE.md → AGENTS.md 심링크"          "[ -L '$SRC/CLAUDE.md' ] && [ ! -L '$SRC/AGENTS.md' ]"
+check "AGENTS.md 실제 파일 · CLAUDE.md 없음" "[ -f '$SRC/AGENTS.md' ] && [ ! -L '$SRC/AGENTS.md' ] && [ ! -e '$SRC/CLAUDE.md' ] && [ ! -L '$SRC/CLAUDE.md' ]"
 
 echo "# git 훅 (도구 무관): pre-commit 이 guard 와 같은 규칙"
 git config core.hooksPath .githooks
