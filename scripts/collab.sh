@@ -283,10 +283,22 @@ run)
 worktree)
   b="${1:-}"; [ -n "$b" ] || { echo "사용: collab.sh worktree <branch>"; exit 1; }
   [ -n "$MAIN" ] || { echo "origin/main 이 없습니다"; exit 1; }
+  worktree_config="$(g config --bool extensions.worktreeConfig 2>/dev/null || true)"
+  if [ "$worktree_config" != true ]; then
+    # 별도 이관이 필요한 Git 설정이나 기존 연결은 자동으로 scope를 바꾸지 않는다.
+    if [ -n "$(g config --local core.worktree 2>/dev/null)" ] ||
+       [ "$(g config --local --bool core.bare 2>/dev/null)" = true ] ||
+       [ -e "$(g rev-parse --absolute-git-dir)/sobaya/connection.json" ]; then
+      echo '기존 설정·연결을 확인하고 extensions.worktreeConfig를 먼저 준비하세요.' >&2; exit 1
+    fi
+    g config extensions.worktreeConfig true || exit 1
+  fi
   dir="$(dirname "$ROOT")/$(basename "$ROOT")-$(branch_slug "$b")"
   if sobaya_approved; then echo "이 클론에 sobaya 승인 상태가 있어 새 브랜치는 워크트리로 엽니다: $dir"; else echo "워크트리로 엽니다: $dir"; fi
   g worktree add -q "$dir" -b "$b" "$MAIN" || exit 1
-  git -C "$dir" config collab.me "$ME" >/dev/null 2>&1; git -C "$dir" config core.hooksPath .githooks >/dev/null 2>&1
+  git -C "$dir" config collab.me "$ME" >/dev/null 2>&1
+  # 연결된 기존 worktree의 전달 훅은 공유 설정으로 덮어쓰지 않는다.
+  git -C "$dir" config --worktree core.hooksPath .githooks || exit 1
   echo "다음: cd $dir 에서 세션을 열고 start-work 를 이어서 (claim 작성·push). sobaya 는 그 디렉토리를 앱으로 지정해 실행."; exit 0 ;;
 guard)
   if [ "${1:-}" = "--allow" ]; then echo "$2" >> "$CACHE/allow"; echo "이 세션에서 $2 허용"; exit 0; fi

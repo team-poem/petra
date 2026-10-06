@@ -1,5 +1,11 @@
 # 승인 후 구현 검증
 
+## 워크트리 통합 — 교체 입력 승인 전 참고 검증
+
+- v3 worktree probe는 sibling이 원래 전달 훅을 상속해 RED였다. 새 worktree에만 `--worktree core.hooksPath=.githooks`를 지정하여 통과했다. 원래 승인·훅 보존 및 새 연결의 root/app 분리를 확인했다.
+- 기존 소스 모드의 미설정 저장소도 worktree를 만들 수 있어야 한다. 최초 구현의 과도한 거절은 기존 sobaya 스위트의 1개 실패로 드러났고, 특수 `core.worktree`·`core.bare=true`·기존 설치 연결이 없는 경우에만 worktreeConfig를 켜도록 수정했다. 공유 hooksPath는 변경하지 않는다. 기존 32개 재통과.
+- 기존 hooks 84, loop 48도 통과. v3 아홉 항목 전체 macOS probe 통과 후 위 legacy 조정의 관련 항목도 재통과했다. v3는 여전히 사람 승인 대기이며 전체 합격 기준으로 주장하지 않는다.
+
 승인된 원본 SHA-256: `daf61fe2d54c8f82558e6de342053f34ce0a533878c8859663cc0eb24e627871`. 기존 세 테스트 파일도 보존한다.
 
 ## 연결 훅 통합 — 교체 입력 승인 전 참고 검증

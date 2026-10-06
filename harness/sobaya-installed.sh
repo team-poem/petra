@@ -37,6 +37,7 @@ for name in $(git rev-parse --local-env-vars); do unset "$name"; done
 store=$(si_absolute "$store") || exit 2
 case "$store/" in "$ROOT/"*) die 'install-root must be outside the consumer' ;; esac
 si_no_legacy "$ROOT" || exit 2
+connected=$(si_connection "$ROOT" "$store") || exit 2
 cli=${cli:-$store/bin/sobaya}
 [ -f "$cli" ] && [ -x "$cli" ] || die 'trusted CLI missing; preinstall the runtime or use sync --cli PATH'
 if [ "$command" != attach ] || si_exists "$ROOT/sobaya.json" || si_exists "$ROOT/sobaya.lock"; then
@@ -46,7 +47,6 @@ if [ "$command" != attach ] || si_exists "$ROOT/sobaya.json" || si_exists "$ROOT
   config=$("$cli" config check --root "$ROOT") || exit 2
   [ "$(printf '%s' "$config" | jq -r .mode)" = dependency ] || die 'dependency mode required'
 fi
-connected=$(si_connection "$ROOT" "$store") || exit 2
 case "$command" in
   attach)
     [ "$(git -C "$ROOT" config --bool extensions.worktreeConfig || :)" = true ] || die 'prepare extensions.worktreeConfig=true before attach'
