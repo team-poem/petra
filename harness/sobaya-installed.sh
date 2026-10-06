@@ -60,5 +60,8 @@ case "$command" in
     set -- sync --root "$ROOT" --install-root "$store"
     [ -z "$archive" ] || set -- "$@" --archive "$archive"
     exec "$cli" "$@" ;;
-  *) die "$command is not implemented yet" ;;
+  bump)
+    set -- bump --root "$ROOT" --install-root "$store" --version "$version" --manifest "$manifest"
+    [ -z "$archive" ] || set -- "$@" --archive "$archive"
+    exec "$cli" "$@" ;;
 esac

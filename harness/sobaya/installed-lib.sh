@@ -67,6 +67,7 @@ si_connection() (
       si_error 'connection forwarding hook configuration conflicts'; exit 1;
     }
   for original in "$root/.githooks/"*; do
+    case "$original" in *.sample) continue ;; esac
     [ -f "$original" ] && [ -x "$original" ] || continue
     hook=$meta/hooks/$(basename "$original")
     [ -f "$hook" ] && [ ! -L "$hook" ] && [ -x "$hook" ] || {
