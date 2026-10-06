@@ -2,6 +2,13 @@
 
 승인된 원본 SHA-256: `daf61fe2d54c8f82558e6de342053f34ce0a533878c8859663cc0eb24e627871`. 기존 세 테스트 파일도 보존한다.
 
+## 체크포인트 4 — 실제 잠금 소유자
+
+- 원본 `busy_tracks_live_locks`는 죽은 PID의 파일을 busy로 판단하여 RED였다.
+- 실행 잠금·관리 잠금의 실제 소유자를 검사하도록 수정했다. macOS shlock의 살아 있는 소유자·죽은 소유자와 active 상태가 원본 항목에서 통과했다. 파일을 지우거나 쓰지 않는다.
+- Linux flock 분기는 별도 실행 전까지 미검증이다.
+- 기존 전체 스위트 hooks 84, loop 48, sobaya 32 통과.
+
 ## 체크포인트 1 — 연결과 읽기 전용 상태
 
 - 시작: 어댑터가 없어 `attach_preserves_app`은 NOT PROBED(exit 2). 제품 RED로 계산하지 않았다.

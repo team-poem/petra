@@ -165,9 +165,26 @@ sobaya_root() {  # 설정값 → 두 단계 위(sobaya/apps/<이 리포>) 순으
 }
 sobaya_lock() { [ -f "$ROOT/harness/sobaya.lock" ] && sed -n 's/^sha=//p' "$ROOT/harness/sobaya.lock"; }
 sobaya_approved() { d="$(g rev-parse --absolute-git-dir 2>/dev/null)" && [ -f "$d/sobaya/state.json" ]; }
+sobaya_lock_live() (
+  [ -e "$1" ] || [ -L "$1" ] || exit 1
+  # 해석할 수 없는 잠금은 보수적으로 busy로 둔다. 존재하는 정상 잠금은 소유자를 검사한다.
+  [ -f "$1" ] && [ ! -L "$1" ] || exit 0
+  if command -v shlock >/dev/null 2>&1; then
+    owner=$(tr -d '[:space:]' < "$1") || exit 0
+    case "$owner" in ''|*[!0-9]*|0) exit 0 ;; esac
+    kill -0 "$owner" 2>/dev/null
+  elif command -v flock >/dev/null 2>&1; then
+    # 읽기 전용 FD로 잠금을 잠깐 시도한다. 해제 후 남은 파일은 busy가 아니다.
+    if (flock -n 9) 9< "$1"; then exit 1; else exit 0; fi
+  else
+    exit 0
+  fi
+)
 sobaya_busy() {  # 루프가 잠금을 쥐고 있거나 항목이 진행 중이면 작업 트리를 건드리면 안 된다
   d="$(g rev-parse --absolute-git-dir 2>/dev/null)" || return 1
-  [ -e "$d/sobaya/lock.shell" ] || [ -e "$d/sobaya/lock" ] && return 0
+  for lock in "$d/sobaya/lock.shell" "$d/sobaya/lock" "$d/sobaya-management.lock"; do
+    sobaya_lock_live "$lock" && return 0
+  done
   [ -f "$d/sobaya/state.json" ] && command -v jq >/dev/null 2>&1 && jq -e '.active != null' "$d/sobaya/state.json" >/dev/null 2>&1
 }
 sync_mode() { case "$SYNC_MODE" in rebase|merge) printf '%s' "$SYNC_MODE" ;; *) sobaya_approved && printf merge || printf rebase ;; esac; }
