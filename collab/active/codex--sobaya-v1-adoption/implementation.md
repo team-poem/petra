@@ -9,3 +9,10 @@
 - 기존 전체 스위트: hooks 84, loop 48, sobaya 32, 실패 0.
 - `attach_rejects_conflicts`는 세 번째 임시 저장소의 훅 디렉터리가 없어 준비 단계에서 중단됐다. 제품 결과가 아니다. `review-v2.md`에 한 줄 보완을 제안했으며 승인 전에는 원본 테스트를 교체하지 않는다.
 - 아직 sync·bump·join·worktree·busy 구현과 전체 아홉 항목 검증이 남았다. 전체 완료를 주장하지 않는다.
+
+## 체크포인트 2 — 명세 없는 main의 정확한 설치 복원
+
+- 원본 `sync_restores_exact_pin_without_plans`: join에 명시적 sync 안내가 없어 RED. 안내와 공개 CLI 위임 구현 후 통과했다.
+- 빈 저장소의 신뢰 CLI 지정, 정확한 공개 매니페스트, pin·훅·Git 설정 보존, 반복 sync와 연결 전 상태를 검증했다.
+- 독립 검토에서 연결 훅의 marker만 검사하는 허점과 비디렉터리 메타데이터를 발견했다. 공개 v1 전달 훅의 정확한 바이트와 필수 pre-commit, 메타데이터 디렉터리를 읽기 전용으로 확인하도록 보완했다. 원본 첫 항목 재통과.
+- 기존 전체 스위트: hooks 84, loop 48, sobaya 32, 실패 0.

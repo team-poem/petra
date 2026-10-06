@@ -56,5 +56,9 @@ case "$command" in
     exec "$cli" init --root "$ROOT" --install-root "$store" --mode dependency --version "$version" ;;
   check)
     printf '%s' "$config" | jq --argjson connected "$connected" '{mode,version:.runtime.version,connected:$connected}' ;;
+  sync)
+    set -- sync --root "$ROOT" --install-root "$store"
+    [ -z "$archive" ] || set -- "$@" --archive "$archive"
+    exec "$cli" "$@" ;;
   *) die "$command is not implemented yet" ;;
 esac
