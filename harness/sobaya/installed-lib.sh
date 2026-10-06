@@ -84,3 +84,22 @@ si_connection() (
   done
   printf 'true\n'
 )
+si_local_status() (
+  meta=$(git -C "$1" rev-parse --absolute-git-dir)/sobaya || exit 1
+  store=$(jq -er '.store | select(type=="string" and startswith("/"))' "$meta/connection.json") || {
+    si_error 'connection store metadata missing or invalid'; exit 1;
+  }
+  sh "$1/harness/sobaya-installed.sh" check --install-root "$store"
+)
+si_setup_collab_hooks() (
+  meta=$(git -C "$1" rev-parse --absolute-git-dir)/sobaya || exit 1
+  if si_exists "$meta/connection.json" || si_exists "$meta/original-hooks.json" || si_exists "$meta/hooks"; then
+    status=$(si_local_status "$1") && printf '%s' "$status" | jq -e '.connected==true' >/dev/null || {
+      si_error 'connection conflicts; inspect before changing hooks'; exit 1;
+    }
+    exit 0
+  fi
+  scope=--local
+  [ "$(git -C "$1" config --bool extensions.worktreeConfig || :)" != true ] || scope=--worktree
+  git -C "$1" config "$scope" core.hooksPath .githooks
+)

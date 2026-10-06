@@ -160,10 +160,24 @@ fmt_age() { s="$1"; [ "$s" -lt 60 ] && { echo "${s}초 전"; return; }; [ "$s" -
 
 # ---- sobaya (개발 하네스) ------------------------------------------------------
 sobaya_root() {  # 설정값 → 두 단계 위(sobaya/apps/<이 리포>) 순으로 찾는다. 없으면 1
+  [ ! -e "$ROOT/sobaya.json" ] && [ ! -e "$ROOT/sobaya.lock" ] || return 1
   if [ -n "$SOBAYA_ROOT" ]; then [ -x "$SOBAYA_ROOT/tdd-set/bin/step.sh" ] && { printf '%s' "$SOBAYA_ROOT"; return 0; }; return 1; fi
   c="$(_norm_dir "$ROOT/../..")" && [ -x "$c/tdd-set/bin/step.sh" ] && { printf '%s' "$c"; return 0; }; return 1
 }
 sobaya_lock() { [ -f "$ROOT/harness/sobaya.lock" ] && sed -n 's/^sha=//p' "$ROOT/harness/sobaya.lock"; }
+sobaya_connection_status() (
+  . "$ROOT/harness/sobaya/installed-lib.sh"
+  si_local_status "$ROOT"
+)
+collab_hooks_on() (
+  . "$ROOT/harness/sobaya/installed-lib.sh"
+  meta=$(g rev-parse --absolute-git-dir)/sobaya || exit 1
+  if si_exists "$meta/connection.json" || si_exists "$meta/original-hooks.json" || si_exists "$meta/hooks"; then
+    status=$(si_local_status "$ROOT" 2>/dev/null) && printf '%s' "$status" | jq -e '.connected==true' >/dev/null
+  else
+    [ "$(si_hook_path "$ROOT")" = "$ROOT/.githooks" ]
+  fi
+)
 sobaya_approved() { d="$(g rev-parse --absolute-git-dir 2>/dev/null)" && [ -f "$d/sobaya/state.json" ]; }
 sobaya_lock_live() (
   [ -e "$1" ] || [ -L "$1" ] || exit 1

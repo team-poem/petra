@@ -2,6 +2,8 @@
 # 템플릿에서 새 프로젝트를 만든 뒤 한 번 실행. 플레이스홀더 치환, 핸들·rerere 설정, 실행 권한. 멱등.
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"; cd "$ROOT"
+. "$ROOT/harness/sobaya/installed-lib.sh"
+si_setup_collab_hooks "$ROOT"
 name="${1:-}"; owner="${2:-}"
 [ -z "$name" ] && { printf '프로젝트 이름: '; read -r name; }
 [ -z "$owner" ] && { owner="$(git config user.name 2>/dev/null | tr ' -' '__' || true)"; printf '내 핸들 (공백·하이픈 없이) [%s]: ' "$owner"; read -r o; [ -n "$o" ] && owner="$o"; }
@@ -10,7 +12,6 @@ grep -rl --exclude-dir=.git --exclude-dir=node_modules -e '{{PROJECT_NAME}}' -e 
   | grep -v '^./collab/templates/' | grep -v '^./harness/init.sh$' | grep -v '^./scripts/' | grep -v '^./harness/hooks/' | grep -v '^./tests/' | while read -r f; do
   sed -i.bak -e "s/{{PROJECT_NAME}}/$name/g" -e "s/{{OWNER}}/$owner/g" -e "s/{{DATE}}/$date/g" "$f" && rm -f "$f.bak"; done
 chmod +x harness/hooks/*.sh harness/*.sh .githooks/* scripts/*.sh tests/*.sh 2>/dev/null || true
-git config core.hooksPath .githooks   # 어느 도구로 커밋하든 같은 규칙
 git config collab.me "$owner"; git config rerere.enabled true
 # GitHub 리포 설정(squash 만, 브랜치 삭제, main 보호)은 첫 push 뒤에 harness/github-policy.sh 가 한다 (보호를 먼저 걸면 초기화 커밋을 못 올린다)
 cat <<MSG
