@@ -56,12 +56,12 @@ si_connection() (
     printf 'false\n'; exit 0
   fi
   [ -f "$meta/connection.json" ] && [ ! -L "$meta/connection.json" ] &&
-    jq -e --arg root "$root" --arg store "$store" '.connection_version==1 and .mode=="dependency" and .root==$root and .app==$root and .store==$store' "$meta/connection.json" >/dev/null || {
+    jq -es --arg root "$root" --arg store "$store" 'length==1 and (.[0] | type=="object" and .connection_version==1 and .mode=="dependency" and .root==$root and .app==$root and .store==$store)' "$meta/connection.json" >/dev/null || {
       si_error 'connection does not match this worktree/store'; exit 1;
     }
   [ "$(git -C "$root" config --bool extensions.worktreeConfig)" = true ] &&
     [ -f "$meta/original-hooks.json" ] && [ ! -L "$meta/original-hooks.json" ] &&
-    jq -e --arg original "$root/.githooks" '.hook_version==1 and .scope=="--worktree" and .original==$original' "$meta/original-hooks.json" >/dev/null &&
+    jq -es --arg original "$root/.githooks" 'length==1 and (.[0] | type=="object" and .hook_version==1 and .scope=="--worktree" and .original==$original)' "$meta/original-hooks.json" >/dev/null &&
     [ "$(si_hook_path "$root")" = "$meta/hooks" ] && [ -d "$meta/hooks" ] && [ ! -L "$meta/hooks" ] &&
     [ -x "$root/.githooks/pre-commit" ] && [ -f "$meta/hooks/pre-commit" ] || {
       si_error 'connection forwarding hook configuration conflicts'; exit 1;
@@ -86,7 +86,7 @@ si_connection() (
 )
 si_local_status() (
   meta=$(git -C "$1" rev-parse --absolute-git-dir)/sobaya || exit 1
-  store=$(jq -er '.store | select(type=="string" and startswith("/"))' "$meta/connection.json") || {
+  store=$(jq -ers 'select(length==1) | .[0] | select(type=="object") | .store | select(type=="string" and startswith("/"))' "$meta/connection.json") || {
     si_error 'connection store metadata missing or invalid'; exit 1;
   }
   sh "$1/harness/sobaya-installed.sh" check --install-root "$store"

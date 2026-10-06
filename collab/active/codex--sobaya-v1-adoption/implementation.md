@@ -1,5 +1,12 @@
 # 승인 후 구현 검증
 
+## 독립 구현 검토
+
+- 연결·원래 훅 메타데이터가 JSON 여러 문서여도 마지막 문서만으로 정상 처리되는 문제를 독립 리뷰가 재현했다. `jq -s`로 정확히 객체 한 개만 받도록 수정했다. 원본 연결 항목과 두 메타데이터 변조 probe가 재통과했다.
+- 전달 훅 바이트·공백/작은따옴표 경로·변조 거절·legacy 충돌·pin 경계를 검토했다. 실행 가능한 `*.sample` 원본은 공개 v1처럼 무시한다.
+- 별도 reviewer의 실제 shlock·sibling worktree·일반 clone probe에서 새 차단 문제는 없었다. 공유 collab.me 설정은 기존 동작이며 이번 범위에서 변경하지 않았다.
+- 교체본 승인과 Linux 실행은 코드 리뷰와 별도의 완료 조건이다.
+
 ## 워크트리 통합 — 교체 입력 승인 전 참고 검증
 
 - v3 worktree probe는 sibling이 원래 전달 훅을 상속해 RED였다. 새 worktree에만 `--worktree core.hooksPath=.githooks`를 지정하여 통과했다. 원래 승인·훅 보존 및 새 연결의 root/app 분리를 확인했다.
