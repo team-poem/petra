@@ -2,6 +2,14 @@
 
 하위 프로젝트는 `harness/VERSION` 으로 어느 템플릿에서 왔는지 안다. 필요한 항목만 가져간다.
 
+## 0.0.10 — 설치형 Sobaya 종속 모드 도입 (미출시·검증 중)
+
+- 기존 프로젝트 위치에서 공개 rc.1을 개인 외부 저장소에 설치하고 `sobaya-installed.sh attach|sync|bump|check`로 명시적으로 연결하는 경로를 추가한다. root pin 두 파일과 구형 `harness/sobaya.lock`을 구분하며 기존 소스 클론 명령은 유지한다.
+- 연결·전달 훅의 worktree 격리, join·init의 연결 보존, 살아 있는 실행·관리 잠금에 따른 pulse 보류를 검증한다. 설치·연결·bump는 명세·테스트 승인이나 gate를 대신하지 않는다.
+- 설치·Git 설정 사전 점검·기능 승인·명세 없는 main의 sync·후속 pin bump PR을 `docs/sobaya-installed.md`에 모으고 기존 안내·스킬을 연결 방식에 맞춰 정리한다. 앱 CLAUDE.md를 재생성하지 않는다.
+- 기존 셸 세 스위트를 보존하고 공개 런타임과 결정적인 worker 대역을 쓰는 설치형 아홉 항목을 추가한다. 승인 원본의 fixture 준비 결함 두 곳을 고친 v3 교체안은 사람 승인 대기 중이다. 전체 macOS·Linux 검증과 완료 리뷰 전이며 출시·ready·전체 통과를 뜻하지 않는다.
+- 구형 연결 자동 이전, 설치형 주간 릴리스 알림, 진행 중 항목의 버전 간 재개와 Poem 구조 재배치는 후속 범위다.
+
 ## 0.0.9 — cairn-landing 실전 보고 9건 수정
 2인·PR 10개로 실제 운영한 세션이 보고한 문제들. 전부 재현 후 수정.
 - **작업 브랜치의 머지가 훅에 막히던 회귀(0.0.4)**: main 에 동료 claim 이 있으면 `git merge main` 이 항상 차단됐다. 문서는 merge 인데 훅이 막아 rebase + force 로 몰렸다. 통합 커밋(머지·체리픽)은 소유권 규칙 대상에서 제외. `pre-merge-commit` 은 보호 브랜치에서만 검사

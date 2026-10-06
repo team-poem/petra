@@ -326,7 +326,7 @@ claude        # 또는 codex
 > 1. 이 폴더를 프로젝트로 초기화  2. 이미 있는 GitHub 프로젝트에 붙이기  3. 새 프로젝트 만들기  4. 먼저 5분 설명 듣기
 
 핸들, 테스트 명령, 허브 파일(스택을 보고 에이전트가 먼저 제안한다), sobaya 를 쓸지 정도를 물은 뒤 알아서 설정한다. 3분.
-이미 설정된 팀 프로젝트에 **합류**하는 사람은 메뉴 없이 핸들 하나만 묻고 끝난다.
+이미 설정된 팀 프로젝트에 **합류**하면 핸들과 협업 훅을 준비한다. 설치형 Sobaya pin이 있으면 개인 설치 저장소를 명시해 sync하는 절차도 안내한다.
 
 끝나면 협업 현황이 뜨고, 외울 규칙 셋을 알려준다. **시작에 claim, 끝에 저널, 남한테 할 말은 `ask @핸들`.**
 
@@ -350,15 +350,16 @@ claude        # 또는 codex
 
 실제 구현은 [team-poem/sobaya](https://github.com/team-poem/sobaya) 가 한다 (사람이 승인한 실패 테스트 → 워커 구현 → 검증 → 커밋). 협업 하네스는 그 바깥에서 "누가 무엇을" 을 관리한다.
 
-```
-~/sobaya/                      ← 각자의 sobaya 워크스페이스 (그냥 clone)
-  apps/
-    shop/                      ← 팀 프로젝트 (이 템플릿으로 만든 리포)
-```
+설치형과 기존 소스 클론 방식 중 프로젝트가 선택한 연결을 사용한다.
 
-- 붙이기: 앱 안에서 `sh harness/attach-sobaya.sh attach --test "npm test"` 한 번.
-- 소바야가 업데이트되면: 매주 CI 가 이슈로 알리고, 누구 하나 `attach-sobaya.sh update` 로 팀 기준을 올리면, 나머지는 세션 켤 때 "다르다" 는 줄을 보고 `sync`.
-- 자세한 것은 [README.md 의 sobaya 절](../README.md#sobaya) 과 `harness/attach-sobaya.sh` 상단 주석.
+| 방식 | 팀이 공유하는 파일 | 합류·업데이트 |
+|---|---|---|
+| 설치형 종속 모드 | 루트 `sobaya.json`·`sobaya.lock` | 외부 개인 저장소에 `sync`; 검토한 출시 버전으로 `bump` PR |
+| 기존 소스 클론 | `harness/sobaya.lock` | `<sobaya>/apps/<프로젝트>`에서 기존 `attach-sobaya.sh`의 sync·update |
+
+설치형은 프로젝트 위치를 유지한다. [설치형 Sobaya 안내](sobaya-installed.md)에서 신뢰한 공개 rc.1 설치, 최초 worktree 설정, attach·sync·bump·check 순서를 확인한다. 연결 도구가 명세나 테스트를 작성·승인하지 않으며, main에는 기능 문서 없이 pin만 둘 수 있다. 워커는 항상 `scripts/collab.sh run -- …`으로 실행한다.
+
+기존 소스 클론의 명령과 주간 upstream 알림은 유지한다. 두 lock을 혼합하거나 자동 이전하지 않는다. 설치형 신규 릴리스 알림과 자동 이전은 후속 범위다. 현재 설치형 도입 PR은 fixture 수정 v3의 승인을 기다리는 중이며 전체 검증 완료 상태가 아니다.
 
 ## 자주 겪을 것
 
@@ -368,4 +369,4 @@ claude        # 또는 codex
 - **자동 rebase 가 싫다** → `harness/config.sh` 의 `AUTO_REBASE=false`. 대신 pulse 가 "main 이 바뀌었다" 고만 알린다.
 - **훅이 거슬린다** → `.claude/settings.local.json` 에서 개인적으로 조정. CI 검사는 그대로 돈다.
 - **Codex 를 쓴다** → `AGENTS.md` 에서 계약을 읽는다. 훅은 Claude Code 전용이니 CI 에 기댄다.
-- **하네스를 고쳤다** → `tests/hooks.sh` 와 `tests/loop.sh`, 그리고 `harness/CHANGELOG.md` 에 한 줄.
+- **하네스를 고쳤다** → 기존 `tests/hooks.sh`·`tests/loop.sh`·`tests/sobaya.sh`와 설치형 스위트를 실행하고 `harness/CHANGELOG.md`에 남긴다. 필요한 공개 자산과 승인 구분은 [검증 절](sobaya-installed.md#8-템플릿-유지보수-검증)에 있다.

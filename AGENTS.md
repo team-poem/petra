@@ -54,13 +54,14 @@
 대화·문서·커밋은 한국어, 코드·식별자·브랜치명은 영어.
 
 ## 8. 개발 하네스 sobaya 와 함께 쓸 때
-이 리포는 sobaya 워크스페이스의 `apps/<이름>` 에 산다. 구현은 sobaya 의 `tdd-set/bin/*` 가 하고, 협업 하네스는 그 바깥에서 "누가 무엇을" 을 관리한다. **sobaya 는 바꾸지 않는다.** 맞춤은 전부 이쪽 규칙이다 (`harness/sobaya/RULES.md`).
-- **워커는 `scripts/collab.sh run -- <sobaya 명령>` 으로 감싸서 돌린다.** 워커는 훅을 거치지 않으므로, 돌리기 전에 동료가 편집 중인 허브 파일이 있으면 중단하고, 끝난 뒤 워커가 건드린 허브 파일을 보고한다.
-- `spec.md` 와 `failed-test.md` 는 **브랜치(기능) 단위**. main 에 두지 않는다. handoff 가 gate·review 뒤 마지막 커밋으로 `collab/journal/plans/` 에 옮긴다. 그 뒤 이 브랜치에서 sobaya 명령을 다시 치지 않는다.
-- sobaya 승인 상태가 있는 브랜치는 main 을 **merge** 로 따라잡는다 (기본). rebase 하면 승인이 깨진다.
-- 이 클론에 승인 브랜치가 있으면 새 브랜치는 **워크트리**로: `scripts/collab.sh worktree <branch>`. 승인 상태가 git-dir 당 하나라 브랜치를 오가면 깨진다.
-- 세션은 앱 안에서 여는 게 기본. Claude 로 루트에서 열면 `attach-sobaya.sh` 가 놓은 어댑터가 이 앱의 훅을 대신 부른다.
-- sobaya 버전은 `harness/sobaya.lock` 이 팀 기준. digest 가 "다르다" 고 하면 `sh harness/attach-sobaya.sh sync`.
+Sobaya는 사람 소유 명세와 승인된 테스트의 구현·검증을, 이 하네스는 그 바깥에서 "누가 무엇을"을 관리한다. **소비자 맞춤은 이쪽에서 처리하며 Sobaya의 승인 규칙을 바꾸지 않는다.** [연동 규칙](harness/sobaya/RULES.md)과 [설치형 절차](docs/sobaya-installed.md)를 따른다.
+- **워커는 `scripts/collab.sh run -- <sobaya 명령>`으로 감싸서 돌린다.** 동료가 편집 중인 허브 파일이면 시작 전에 중단하고, 끝난 뒤 워커가 건드린 허브 파일을 보고한다.
+- `spec.md`와 `failed-test.md`는 **브랜치(기능) 단위**다. main에 두지 않는다. handoff가 gate·review 뒤 마지막 커밋으로 `collab/journal/plans/`에 옮긴다. 그 뒤 이 브랜치에서 Sobaya 명령을 다시 실행하지 않는다.
+- 승인 브랜치는 main을 **merge**로 따라잡는다. rebase하면 승인이 깨진다. 승인 상태가 git-dir마다 하나이므로 다른 작업은 **worktree**로 연다: `scripts/collab.sh worktree <branch>`.
+- **설치형을 선택하면** 기존 프로젝트 위치에서 `harness/sobaya-installed.sh attach|sync|bump|check`를 사용한다. 개인 설치 저장소는 프로젝트 밖에 두고 매번 지정한다. 루트 `sobaya.json`·`sobaya.lock`이 팀 버전이며 구형 `harness/sobaya.lock`과 혼합하지 않는다.
+- 설치형 attach 전에 기존 Git/worktree 설정을 점검하고 `extensions.worktreeConfig=true`를 준비한다. attach는 기존 실제 `AGENTS.md`·`spec.md`·`failed-test.md`를 요구하며 파일 생성, `Test:` 변경, 자동 승인을 하지 않는다. main에서는 문서를 만들지 않고 sync만 한다. 앱 `CLAUDE.md` 링크를 다시 만들지 않는다.
+- **기존 소스 클론 연결은 유지한다.** `<sobaya>/apps/<이름>`에서 `harness/attach-sobaya.sh`와 `harness/sobaya.lock`을 사용한다. 세션은 앱 안에서 여는 것이 기본이며, 구형 루트 세션 어댑터도 그대로다. 자동 설치형 이전은 하지 않는다.
+- 설치형 check의 연결·전달 훅 일치 결과를 전체 런타임 무결성, 테스트 승인이나 gate 통과로 간주하지 않는다. 후속 bump는 검토한 후보를 전체 테스트로 검증한 뒤 두 root pin의 PR로 처리한다. 승인·claim·저널·완료 리뷰 규칙은 유지한다.
 
 ## 9. 위치
-`collab/active/<slug>/` claim + 브랜치 산출물 · `collab/journal/` 이벤트 로그 · `harness/config.sh` 설정(HOTSPOTS 등) · `harness/hooks/` 훅 스크립트 · `.githooks/` git 훅 · `scripts/collab.sh` 도구 · `harness/attach-sobaya.sh` sobaya 결합 · 사람용 절차 `CONTRIBUTING.md`
+`collab/active/<slug>/` claim + 브랜치 산출물 · `collab/journal/` 이벤트 로그 · `harness/config.sh` 설정(HOTSPOTS 등) · `harness/hooks/` 훅 스크립트 · `.githooks/` git 훅 · `scripts/collab.sh` 도구 · `harness/attach-sobaya.sh` 구형 소스 클론 결합 · `harness/sobaya-installed.sh` 설치형 결합 · 사람용 절차 `CONTRIBUTING.md`

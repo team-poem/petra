@@ -4,11 +4,12 @@ owner: Kangmin_Kim
 started: 2026-10-06
 status: active
 goal: 기존 협업 규칙을 유지하며 소바야 v1 설치형 연결을 지원한다
-next: harness/sobaya-installed.sh harness/hooks/lib.sh harness/join.sh scripts/collab.sh tests/ 문서 — 승인된 아홉 항목 구현·검증
+next: v3 fixture 교체본 승인 후 tests/sobaya-installed.sh 원문 적용 · CI 연결 · 최종 전체 검증 · PR ready
 base: main
 ---
 
 ## 메모
+- 설치형 구현·가이드와 독립 코드 검토를 마쳤다. 원본 fixture 준비 오류 두 곳의 v3 교체본 승인을 기다린다. 기존 164개와 원본의 정상 실행 가능한 항목은 통과했으나 새 전체 스위트 승인 완료를 주장하지 않는다.
 - 2026-10-06 사용자가 정확한 아홉 테스트 입력을 승인했다. 아래의 초안 대기 메모를 대체하고 구현을 진행한다.
 - 기존 프로젝트·생성 프로젝트의 소바야 연결을 v1 설치·고정·sync·bump로 확장한다.
 - 현재 단계는 실행 가능한 테스트 초안과 설명 검토본 준비다. 정확한 초안 승인 전에는 구현하지 않는다.

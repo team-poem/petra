@@ -1,5 +1,21 @@
 # 승인 후 구현 검증
 
+## 현재 완료 경계 (2026-10-06)
+
+| 증거 | 결과·범위 |
+|---|---|
+| 기존 승인 세 스위트 | macOS 84+48+32, Linux `e947b10` 84+48+32 통과. 기존 테스트·구형 어댑터 바이트 보존 |
+| 원본 신규 입력 `daf61fe2…` | attach·sync·bump·busy·run·공개 사이클 항목 통과. busy는 실제 macOS shlock과 Linux flock 각각 확인 |
+| 원본 나머지 3항목 | `.git/hooks` 누락 또는 fixture main push의 정상적인 보호 훅 거절로 준비 단계에서 중단. 제품 실패/성공으로 계산하지 않음 |
+| v3 제안 `f264e753…` | macOS 및 Linux `e947b10`의 아홉 항목 전체 참고 probe 통과. 미승인 입력이므로 합격 기준이 아님 |
+| 독립 코드 검토 | `fc7ec9a`에서 남은 실행 가능한 지적 없음. 발견한 메타데이터 JSON stream 오류 수정 및 독립 변조 재검증 완료 |
+| 후속 metadata 수정 검증 | 원본 attach와 독립 malformed JSON probe 통과. Linux 전체 기록은 이 수정 이전 `e947b10`에 한정 |
+| CI | 기존 workflow의 세 스위트·협업 검사 통과. 설치형 추가 단계는 `proposed-harness-check.yml`로 준비했으며 아직 활성 workflow가 아님 |
+
+Linux 증거: `/private/tmp/poem-linux-validation.kymPii/RESULTS-e947b10.md`, `checkpoint-e947b10.log`. macOS v3 전체 증거: `/private/tmp/poem-v1-v3-macos-all.log`. 독립 오류 재검증: `/private/tmp/poem-installed-draft.SUxRpZ`. Linux 전용 VM은 종료했고 기본 Docker context를 유지했다.
+
+다음은 v3 정확한 교체본의 사람 승인이다. 승인되면 `tests/sobaya-installed.sh`에 그대로 적용하고 승인 기록을 남긴 뒤 준비된 CI를 연결한다. 최종 revision에서 macOS·Linux 전체 스위트와 협업 검사를 수행하고 PR #5를 ready로 전환한다. 승인 전에는 PR을 draft로 유지한다. 실제 사용자 앱의 승인·유료 모델·배포·병합은 수행하지 않았다.
+
 ## 독립 구현 검토
 
 - 연결·원래 훅 메타데이터가 JSON 여러 문서여도 마지막 문서만으로 정상 처리되는 문제를 독립 리뷰가 재현했다. `jq -s`로 정확히 객체 한 개만 받도록 수정했다. 원본 연결 항목과 두 메타데이터 변조 probe가 재통과했다.
