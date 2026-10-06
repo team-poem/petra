@@ -3,12 +3,13 @@ branch: codex/sobaya-v1-adoption
 owner: Kangmin_Kim
 started: 2026-10-06
 status: active
-goal: 기존 협업 규칙을 유지하며 소바야 v1 설치형 연결을 지원한다
+goal: bump : add Sobaya v1.0.0-rc.1 dependency support
 next: v3 fixture 교체본 승인 후 tests/sobaya-installed.sh 원문 적용 · CI 연결 · 최종 전체 검증 · PR ready
 base: main
 ---
 
 ## 메모
+- 사용자 요청에 따라 PR 제목을 영어 `bump :` 형식으로 변경했다. 최초 설치형 종속 연결 도입을 뜻하며, 기존 소비자의 root pin만 올리는 후속 bump와 범위를 구분한다.
 - 설치형 구현·가이드와 독립 코드 검토를 마쳤다. 원본 fixture 준비 오류 두 곳의 v3 교체본 승인을 기다린다. 기존 164개와 원본의 정상 실행 가능한 항목은 통과했으나 새 전체 스위트 승인 완료를 주장하지 않는다.
 - 2026-10-06 사용자가 정확한 아홉 테스트 입력을 승인했다. 아래의 초안 대기 메모를 대체하고 구현을 진행한다.
 - 기존 프로젝트·생성 프로젝트의 소바야 연결을 v1 설치·고정·sync·bump로 확장한다.
