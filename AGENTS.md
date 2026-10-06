@@ -9,7 +9,7 @@
 같은 파일을 동시에 고치지 않고, 다음 사람이 이어받을 수 있게 일하기 위한 계약이다. 코드 컨벤션·테스트는 다루지 않는다.
 
 ## 0. 어느 도구에서든 같다
-이 계약은 `AGENTS.md` 하나다. `CLAUDE.md` 는 여기를 가리키는 심링크. 스킬은 `.agents/skills/` (`.claude/skills` 는 심링크).
+이 계약은 `AGENTS.md` 하나다. 스킬은 `.agents/skills/` (`.claude/skills` 는 심링크).
 규칙의 본체는 `scripts/collab.sh` 와 git 훅(`.githooks/`)에 있고, `.claude/settings.json` 과 `.codex/hooks.json` 은 같은 스크립트를 부르는 얇은 배선이다.
 **훅이 안 도는 환경이면 직접 부른다**: 세션 시작에 `sh scripts/collab.sh digest --fetch`, 파일을 여러 개 고친 뒤 `sh scripts/collab.sh pulse`, 끝에 handoff 스킬의 절차. 커밋·push 는 어차피 git 훅이 검사한다.
 

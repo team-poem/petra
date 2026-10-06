@@ -342,7 +342,7 @@ claude        # 또는 codex
 | **git 훅** | `.githooks/pre-commit`, `pre-push` (`init.sh` 가 `core.hooksPath` 로 켠다) | 무엇으로 커밋하든. 스테이지된 파일에 guard 와 같은 판정 |
 | **CI** | PR 마다 `collab.sh check` | 최종 방어선 |
 
-계약은 `AGENTS.md` 하나(`CLAUDE.md` 는 심링크), 스킬은 `.agents/skills/` 하나(`.claude/skills` 는 심링크), 현황·판정은 `scripts/collab.sh` 하나다.
+계약은 `AGENTS.md` 하나, 스킬은 `.agents/skills/` 하나(`.claude/skills` 는 심링크), 현황·판정은 `scripts/collab.sh` 하나다.
 훅이 안 붙는 도구에서는 `collab.sh digest` 와 `pulse` 를 직접 부르면 같은 정보를 본다. `AGENTS.md` 가 그렇게 시킨다.
 
 
@@ -367,5 +367,5 @@ claude        # 또는 codex
 - **허브 파일을 꼭 지금 고쳐야 한다** → 상대와 한마디 하고 `scripts/collab.sh guard --allow <path>`. 이 세션에서만 풀린다.
 - **자동 rebase 가 싫다** → `harness/config.sh` 의 `AUTO_REBASE=false`. 대신 pulse 가 "main 이 바뀌었다" 고만 알린다.
 - **훅이 거슬린다** → `.claude/settings.local.json` 에서 개인적으로 조정. CI 검사는 그대로 돈다.
-- **Codex 를 쓴다** → `AGENTS.md` 가 `CLAUDE.md` 심링크라 계약은 같다. 훅은 Claude Code 전용이니 CI 에 기댄다.
+- **Codex 를 쓴다** → `AGENTS.md` 에서 계약을 읽는다. 훅은 Claude Code 전용이니 CI 에 기댄다.
 - **하네스를 고쳤다** → `tests/hooks.sh` 와 `tests/loop.sh`, 그리고 `harness/CHANGELOG.md` 에 한 줄.

@@ -14,7 +14,7 @@ echo '# Sobaya' > AGENTS.md; git add -A && git commit -qm init
 # bare 원격 + 앱
 git init -q --bare "$R/origin.git" && git -C "$R/origin.git" symbolic-ref HEAD refs/heads/main
 A="$WS/apps/shop"; git clone -q "$R/origin.git" "$A" 2>/dev/null; cd "$A" && git switch -qc main 2>/dev/null && git config user.email a@a && git config user.name a && git config collab.me solp && git config collab.onboarded true
-cp -R "$SRC/.claude" "$SRC/.codex" "$SRC/.githooks" "$SRC/harness" "$SRC/collab" "$SRC/scripts" "$SRC/.gitignore" "$SRC/AGENTS.md" . && rm -rf .claude/cache && ln -s AGENTS.md CLAUDE.md
+cp -R "$SRC/.claude" "$SRC/.codex" "$SRC/.githooks" "$SRC/harness" "$SRC/collab" "$SRC/scripts" "$SRC/.gitignore" "$SRC/AGENTS.md" . && rm -rf .claude/cache
 # 픽스처는 템플릿 자신의 협업 데이터를 물려받지 않는다 (오늘 날짜의 실제 저널이 검사에 섞인다)
 find collab/journal -maxdepth 1 -name '*.md' ! -name README.md -delete 2>/dev/null || true
 rm -rf collab/journal/plans; find collab/active -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
