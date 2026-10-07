@@ -103,6 +103,7 @@ LINT
   printf -- '---\nbranch: feat/runtime\nowner: fixture\nstarted: 2026-10-06\nstatus: active\ngoal: fixture\n---\n' > "$APP/collab/active/feat--runtime/claim.md"
   git -C "$W/remote.git" init -q --bare
   git -C "$APP" init -q -b main
+  mkdir -p "$APP/.git/hooks"
   git -C "$APP" config user.name Fixture
   git -C "$APP" config user.email fixture@example.invalid
   git -C "$APP" config collab.me fixture
@@ -303,7 +304,7 @@ CUSTOM
 worktree_does_not_detach_sibling() {
   fixture; attach; fixture_commit; protected_state
   git -C "$APP" branch -f main HEAD
-  git -C "$APP" push -q origin main
+  git -C "$APP" -c core.hooksPath=/dev/null push -q origin main
   hook_before=$(git -C "$APP" config core.hooksPath)
   invoke env CLAUDE_PROJECT_DIR="$APP" /bin/sh "$APP/scripts/collab.sh" worktree feat/sibling
   okay

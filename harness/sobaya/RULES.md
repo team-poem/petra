@@ -32,4 +32,4 @@
 
 ## 이 표를 유지하는 방법
 
-구형 `attach-sobaya.sh update` 또는 설치형 후보 bump를 검토할 때 공개 계약과 이 표를 함께 확인한다. 기존 `tests/hooks.sh`·`tests/loop.sh`·`tests/sobaya.sh`와 설치형 `tests/sobaya-installed.sh`를 실행한다. 테스트 입력 변경은 사람이 정확한 교체본을 승인해야 한다. 현재 fixture v3는 승인 대기 중이므로 원본을 대체하거나 전체 통과로 간주하지 않는다.
+구형 `attach-sobaya.sh update` 또는 설치형 후보 bump를 검토할 때 공개 계약과 이 표를 함께 확인한다. 기존 `tests/hooks.sh`·`tests/loop.sh`·`tests/sobaya.sh`와 설치형 `tests/sobaya-installed.sh`를 실행한다. 테스트 입력 변경은 사람이 정확한 교체본을 승인해야 한다. fixture v3는 2026-10-07 사람의 교체 승인을 받아 적용했다. 승인 범위와 정확한 입력은 [승인 기록](../../collab/journal/2026-10-07-Kangmin_Kim-sobaya-v1-fixture-approved.md)에 있다. 실제 소비자 앱의 승인이나 최종 검증은 이 승인으로 대체하지 않는다.
