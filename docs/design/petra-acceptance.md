@@ -51,7 +51,7 @@
 | C03 | 구형 소스 클론 + 새 worktree | 실제 Sobaya install로 attach/sync 성공. 원래 hooksPath의 local/worktree scope 복원. PR #5 지적의 재발 없음 |
 | C04 | 살아 있는 실행/관리 잠금 또는 active 항목 | 이전·설정 변경 거부. HEAD·작업 트리·인덱스 불변. 잠금 해제 후 재시도 가능 |
 | C05 | 신규 설치와 구형 기록 ref 공존 | 신규 .petra/collab과 옛 브랜치 collab의 claim·관련 이벤트를 각각 읽고 같은 기록 중복 없음 |
-| C06 | solp·amazon 실제 clone 두 개 | claim 공유, 질문·답변, 파일 겹침, 허브 편집 경고/차단, handoff가 변경 전과 같은 의미로 작동 |
+| C06 | solp·amazon 실제 clone 두 개 | claim 공유, 질문·답변, 파일 겹침, 허브 편집 경고/차단, handoff가 같은 의미로 작동. 실제 변경 파일 교집합이 비어 있으면 겹침 오보 없음 |
 | C07 | main 따라잡기 | 깨끗한 트리에서 merge. Sobaya 실행 중 보류. 충돌 시 HEAD·인덱스·파일 보존 및 알림 |
 | C08 | source 또는 installed Sobaya 완료 흐름 | run 래퍼, 실제 승인→RED→GREEN→체크포인트→review/gate 경로, handoff 보관·PR 검사까지 검증. 결정적 워커 대역임을 표시 |
 | C09 | 새 clone 합류와 명세 없는 main | join이 공유 파일·핀을 바꾸지 않음. installed sync만 안내·실행 가능하며 자동 attach/승인 없음 |
