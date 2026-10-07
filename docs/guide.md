@@ -359,7 +359,7 @@ claude        # 또는 codex
 
 설치형은 프로젝트 위치를 유지한다. [설치형 Sobaya 안내](sobaya-installed.md)에서 신뢰한 공개 rc.1 설치, 최초 worktree 설정, attach·sync·bump·check 순서를 확인한다. 연결 도구가 명세나 테스트를 작성·승인하지 않으며, main에는 기능 문서 없이 pin만 둘 수 있다. 워커는 항상 `scripts/collab.sh run -- …`으로 실행한다.
 
-기존 소스 클론의 명령과 주간 upstream 알림은 유지한다. 두 lock을 혼합하거나 자동 이전하지 않는다. 설치형 신규 릴리스 알림과 자동 이전은 후속 범위다. 현재 설치형 도입 PR은 fixture 수정 v3의 승인을 기다리는 중이며 전체 검증 완료 상태가 아니다.
+기존 소스 클론의 명령과 주간 upstream 알림은 유지한다. 두 lock을 혼합하거나 자동 이전하지 않는다. 설치형 신규 릴리스 알림과 자동 이전은 후속 범위다. 설치형 유지보수 테스트의 v3 교체본은 사람의 승인을 받아 적용했으며, [승인·검증 기록](../collab/active/codex--sobaya-v1-adoption/implementation.md)에서 입력과 실행 범위를 확인한다.
 
 ## 자주 겪을 것
 

@@ -2,7 +2,7 @@
 
 하위 프로젝트는 `harness/VERSION` 으로 어느 템플릿에서 왔는지 안다. 필요한 항목만 가져간다.
 
-## 0.0.10 — 설치형 Sobaya 종속 모드 도입 (미출시·검증 중)
+## 0.0.10 — 설치형 Sobaya 종속 모드 도입 (미출시)
 
 - 기존 프로젝트 위치에서 공개 rc.1을 개인 외부 저장소에 설치하고 `sobaya-installed.sh attach|sync|bump|check`로 명시적으로 연결하는 경로를 추가한다. root pin 두 파일과 구형 `harness/sobaya.lock`을 구분하며 기존 소스 클론 명령은 유지한다.
 - 연결·전달 훅의 worktree 격리, join·init의 연결 보존, 살아 있는 실행·관리 잠금에 따른 pulse 보류를 검증한다. 설치·연결·bump는 명세·테스트 승인이나 gate를 대신하지 않는다.

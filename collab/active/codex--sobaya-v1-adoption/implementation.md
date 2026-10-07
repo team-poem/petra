@@ -1,16 +1,28 @@
 # 승인 후 구현 검증
 
-## v3 교체 승인과 CI 연결 (2026-10-07)
+## v3 승인 적용 후 검증 (2026-10-07)
 
 사용자가 v3의 두 fixture 준비 수정과 후속 검증·Ready 전환을 승인했다.
 교체본 SHA-256 `f264e7533dc994ca30042fcf062963f6157572a7e51fd3bc446b07a98292e62b`를
 `tests/sobaya-installed.sh`에 바이트 그대로 적용했다. 기존 세 스위트와 아홉
 제품 동작 단언은 보존했다. [승인 기록](../../journal/2026-10-07-Kangmin_Kim-sobaya-v1-fixture-approved.md)을 따른다.
 
-준비된 workflow를 활성 `.github/workflows/harness-check.yml`로 적용했다.
-공개 rc.1 소스 커밋과 자산을 고정하고, 기존 세 스위트 뒤에 설치형 아홉 항목을
-Linux CI에서 실행한다. macOS 전체 스위트와 독립 완료 리뷰를 함께 확인한 뒤
-Ready로 전환한다. 아래는 이번 교체 전까지의 검증 이력이다.
+`d89c72906ed52c99b106e4630d2468b3b5aac2a9`에서 macOS의 기존 스위트
+84+48+32개, 승인된 설치형 9개와 협업 검사가 통과했다. 실행 전후 HEAD가 같고
+작업 트리가 깨끗함을 확인했다. macOS는 `/usr/bin/shlock`을 사용했다.
+로컬 증거는 `/private/tmp/poem-ready-macos.QZXnU1/`에 있다.
+
+같은 PR head의 [Linux CI 37587169323](https://github.com/team-poem/poem-collaboration-harness-template/actions/runs/37587169323)도
+기존 164개와 설치형 9개, 협업 검사가 모두 통과했다. GitHub Actions는 해당
+head의 PR merge ref `1a121887b5857a2cbb9aa80aed249baeba42e53e`를 실행했다.
+CI를 연결할 때 공개 rc.1 소스 커밋·자산을 고정했고, 후속 최종 검사에는
+`flock` 가용성과 `shlock` 부재의 명시적 환경 확인을 추가했다.
+
+독립 검토에서 실행 코드의 추가 결함은 없었고, 이전 JSON 다중 문서 오류의
+거절을 다시 확인했다. 현재 사용자 문서에 남아 있던 승인 대기 문구를 정리했다.
+최종 문서·CI 정리 커밋도 macOS·Linux 전체 실행과 독립 리뷰를 확인한 뒤
+Ready로 전환한다. 최신 head의 결과는 [PR #5](https://github.com/team-poem/poem-collaboration-harness-template/pull/5)의
+검사 및 완료 보고를 따른다. 아래는 교체 승인 전의 검증 이력이다.
 
 ## 교체 승인 전 검증 이력 (2026-10-06)
 

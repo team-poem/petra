@@ -132,7 +132,7 @@ start-work ──▶ (작업 · pulse · 커밋마다 wip) ──▶ handoff ─
 
 <a id="sobaya"></a>
 - **sobaya (개발 하네스)**: 사람 소유 명세·승인된 테스트의 구현과 검증을 담당한다. Poem은 기존 협업 규칙을 유지하며 워커를 `scripts/collab.sh run -- …`으로 감싼다. 맞춤은 소비자 쪽에서 처리한다 ([연동 규칙](harness/sobaya/RULES.md)).
-- **선택적 설치형 연결**: 기존 프로젝트 위치를 유지하고 외부 개인 저장소에 공개 런타임을 설치한다. `harness/sobaya-installed.sh attach|sync|bump|check`를 사용하며 루트 `sobaya.json`·`sobaya.lock`이 팀 버전이다. `attach`는 명세·초안·승인을 만들지 않는다. 준비 설정과 명령은 [설치형 안내](docs/sobaya-installed.md)를 따른다. 현재 도입 PR의 v3 테스트 교체안은 승인 대기 중이며 전체 검증 완료 상태가 아니다.
+- **선택적 설치형 연결**: 기존 프로젝트 위치를 유지하고 외부 개인 저장소에 공개 런타임을 설치한다. `harness/sobaya-installed.sh attach|sync|bump|check`를 사용하며 루트 `sobaya.json`·`sobaya.lock`이 팀 버전이다. `attach`는 명세·초안·승인을 만들지 않는다. 준비 설정과 명령은 [설치형 안내](docs/sobaya-installed.md)를 따른다. 설치형 유지보수 테스트의 v3 교체본은 2026-10-07 사람의 승인을 받아 적용했다.
 - **기존 소스 클론 연결**: `<sobaya>/apps/<이름>`에서 기존 `attach-sobaya.sh attach|sync|update|check`와 `harness/sobaya.lock`을 유지한다. 주간 upstream 알림도 이 방식의 기능이다. 설치형과 구형 lock을 함께 두지 않으며 자동 이전하지 않는다.
 - **후속 설치형 업데이트**: 검토한 정확한 후보로 `bump`를 실행하고 두 root pin의 변경을 PR로 검토한다. 팀원은 `sync`한다. claim·저널 규칙은 그대로이고 설치형 주간 릴리스 알림은 후속 범위다.
 - **아우터 루프 (CI)**: `check` 의 "다른 열린 브랜치와 같은 파일", `digest --json` 의 `overlaps`. 자동 병합 순서는 그때.
@@ -150,7 +150,7 @@ export SOBAYA_TEST_SOURCE="/absolute/path/to/sobaya-source-containing-the-public
 /bin/bash tests/sobaya-installed.sh all
 ```
 
-하네스를 고치면 기존 세 스위트와 설치형 아홉 항목을 검증하고 `harness/CHANGELOG.md`에 남긴다. 공개 자산 확보, support 확인과 승인 대기 중인 fixture 교체안의 구분은 [설치형 검증 절](docs/sobaya-installed.md#8-템플릿-유지보수-검증)을 따른다. 테스트 입력을 바꿀 때는 사람이 정확한 교체본을 승인해야 한다.
+하네스를 고치면 기존 세 스위트와 설치형 아홉 항목을 검증하고 `harness/CHANGELOG.md`에 남긴다. 공개 자산 확보, support 확인과 승인된 전체 스위트의 구분은 [설치형 검증 절](docs/sobaya-installed.md#8-템플릿-유지보수-검증)을 따른다. 테스트 입력을 바꿀 때는 사람이 정확한 교체본을 승인해야 한다.
 
 ## 시작 — 첫 세션은 온보딩
 

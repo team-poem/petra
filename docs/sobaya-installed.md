@@ -1,6 +1,6 @@
 # 설치형 Sobaya 연결하기
 
-이 문서는 기존 프로젝트와 이 템플릿으로 만든 프로젝트에 **Sobaya v1을 선택적으로 연결하는 절차**다. Sobaya는 사람이 승인한 테스트의 구현·검증을, Poem은 작업 선언·충돌 확인·인수인계를 담당한다. 현재 도입 작업은 테스트 준비 결함을 고친 v3 교체안의 사람 승인을 기다리는 중이며, 전체 검증 완료나 PR ready 상태가 아니다.
+이 문서는 기존 프로젝트와 이 템플릿으로 만든 프로젝트에 **Sobaya v1을 선택적으로 연결하는 절차**다. Sobaya는 사람이 승인한 테스트의 구현·검증을, Poem은 작업 선언·충돌 확인·인수인계를 담당한다. 설치형 유지보수 테스트의 v3 교체본은 2026-10-07 사람의 승인을 받아 적용했다. 실제 소비자 앱의 명세와 테스트는 각 프로젝트에서 별도로 검토·승인한다.
 
 ## 연결 방식과 파일
 
@@ -176,4 +176,6 @@ export SOBAYA_TEST_SOURCE="/absolute/path/to/sobaya-source-containing-the-public
 
 두 support 명령은 fixture와 공개 런타임의 사용 가능성을 확인하며 새 어댑터의 합격 증거가 아니다. 결정적인 worker·review 대역은 실제 모델 품질이나 비용을 측정하지 않는다. 테스트 준비 실패, 제품 RED, 도구 부족으로 인한 NOT PROBED를 구분하고 macOS와 Linux의 실제 잠금 분기를 각각 확인한다.
 
-현재 승인된 원본 테스트는 보존돼 있다. fixture 준비 두 곳을 고친 [v3 검토안](../collab/active/codex--sobaya-v1-adoption/review-v3.md)은 별도 사람 승인 전까지 원본을 대체하지 않는다. [도입 계획](../collab/active/codex--sobaya-v1-adoption/plan.md)과 [구현 검증 기록](../collab/active/codex--sobaya-v1-adoption/implementation.md)에서 승인·실행 범위를 확인한다. 승인되지 않은 대조군의 통과나 기존 스위트의 통과만으로 전체 연결 기능을 완료 처리하지 않는다.
+현재 `tests/sobaya-installed.sh`는 fixture 준비 두 곳을 고친 v3 원문이며, SHA-256은 `f264e7533dc994ca30042fcf062963f6157572a7e51fd3bc446b07a98292e62b`다. [사람의 교체 승인](../collab/journal/2026-10-07-Kangmin_Kim-sobaya-v1-fixture-approved.md)에 따라 적용했고 기존 제품 동작 단언을 유지했다. 원문에 남아 있는 DRAFT 주석은 바이트 보존을 위한 것이며 현재 승인 상태는 이 기록을 따른다. [도입 계획](../collab/active/codex--sobaya-v1-adoption/plan.md)은 최초 제안 이력으로 보존하고, 현재 승인·실행 범위는 [구현 검증 기록](../collab/active/codex--sobaya-v1-adoption/implementation.md)에서 확인한다.
+
+CI는 고정된 공개 rc.1 자산을 확보한 뒤 기존 세 스위트와 설치형 아홉 항목을 실행한다. Linux 작업은 `flock`의 가용성과 `shlock`의 부재를 확인해 실제 flock 분기를 검증한다. macOS에서는 shlock 분기를 별도로 실행한다. 승인되지 않은 대조군의 통과나 기존 스위트의 통과만으로 전체 연결 기능을 완료 처리하지 않는다.

@@ -28,6 +28,16 @@ jobs:
               "https://github.com/team-poem/sobaya/releases/download/v1.0.0-rc.1/$asset" \
               --output "$RUNNER_TEMP/sobaya-rc1-assets/$asset"
           done
+      - name: Linux flock 검증 환경 확인
+        shell: bash
+        run: |
+          test "$(uname -s)" = Linux
+          command -v flock
+          if command -v shlock; then
+            echo 'Linux 검증은 shlock이 없는 환경에서 flock 분기를 실행해야 합니다.' >&2
+            exit 1
+          fi
+          echo '설치형 잠금 검증 분기: flock'
       - name: 설치형 연결과 공개 런타임 검증
         shell: bash
         env:
