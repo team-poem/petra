@@ -2,9 +2,9 @@
 branch: docs/petra-install-design
 owner: solp
 started: 2026-10-07
-status: active
+status: paused
 goal: 이슈 4의 PETRA 설치 구조와 안전한 이전 기준을 설계한다
-next: docs/design/ 설계 문서만 작성, 실행 코드 변경은 PR 5 수정 및 머지 이후
+next: 설계안 팀 검토, 실행 코드 변경은 PR 5 수정 및 머지 이후
 ---
 
 ## 메모
