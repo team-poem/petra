@@ -2,13 +2,14 @@
 branch: codex/sobaya-v1-adoption
 owner: Kangmin_Kim
 started: 2026-10-06
-status: done
+status: active
 goal: bump : add Sobaya v1.0.0-rc.1 dependency support
-next: 최종 PR 검사와 독립 리뷰 확인 후 Ready 전환 · PR #5 리뷰 및 병합 판단
+next: 솔피가 재현한 구형 attach 회귀의 실제 설치기 테스트 초안·실패 증거 검토, 사람 승인 후 설정 범위 보존 수정
 base: main
 ---
 
 ## 메모
+- 2026-10-08 PR #5의 구형 worktree attach 실패와 공통 hooksPath 오염을 재현했다. 기존 승인 테스트는 보존하고 별도 회귀 테스트를 검토한다. 변경 범위는 harness/attach-sobaya.sh, 새 tests/sobaya-legacy-worktree.sh, 관련 CI·검토·저널 문서다.
 - 2026-10-07 사용자가 v3 교체안 두 곳의 수정을 명시적으로 승인했다. SHA-256 `f264e7533dc994ca30042fcf062963f6157572a7e51fd3bc446b07a98292e62b`의 원문 적용과 설치형 CI 연결을 완료했다.
 - `d89c729`에서 macOS·Linux의 기존 164개와 설치형 9개를 모두 확인했다. 최종 커밋의 결과는 PR 검사와 완료 보고에서 확인한다. done은 구현·인수인계 제출을 뜻하며 병합·출시는 별도다.
 - 사용자 요청에 따라 PR 제목을 영어 `bump :` 형식으로 변경했다. 최초 설치형 종속 연결 도입을 뜻하며, 기존 소비자의 root pin만 올리는 후속 bump와 범위를 구분한다.
