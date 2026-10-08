@@ -4,7 +4,7 @@ owner: Kangmin_Kim
 started: 2026-10-06
 status: active
 goal: bump : add Sobaya v1.0.0-rc.1 dependency support
-next: 솔피가 재현한 구형 attach 회귀의 실제 설치기 테스트 초안·실패 증거 검토, 사람 승인 후 설정 범위 보존 수정
+next: 구형 연결 회귀 7개 초안(d736cb05)의 사람 승인 후 설정 보존·sync 종료 코드 수정 및 전체 검증
 base: main
 ---
 
