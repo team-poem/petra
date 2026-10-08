@@ -4,6 +4,7 @@
 
 ## 0.0.10 — 설치형 Sobaya 종속 모드 도입 (미출시)
 
+- 새 worktree에서 구형 소스 연결이 실패하던 회귀를 수정한다. 공통·worktree Git 설정을 쓰지 않고 임시 훅을 설치한 뒤 공용 관리 훅을 게시하며, 사용자 훅·심링크와 실패 상태를 보존한다. 정상 sync의 종료 코드도 0으로 고친다. 2026-10-08 승인된 실제 설치기 회귀 7개를 CI에 추가한다.
 - 기존 프로젝트 위치에서 공개 rc.1을 개인 외부 저장소에 설치하고 `sobaya-installed.sh attach|sync|bump|check`로 명시적으로 연결하는 경로를 추가한다. root pin 두 파일과 구형 `harness/sobaya.lock`을 구분하며 기존 소스 클론 명령은 유지한다.
 - 연결·전달 훅의 worktree 격리, join·init의 연결 보존, 살아 있는 실행·관리 잠금에 따른 pulse 보류를 검증한다. 설치·연결·bump는 명세·테스트 승인이나 gate를 대신하지 않는다.
 - 설치·Git 설정 사전 점검·기능 승인·명세 없는 main의 sync·후속 pin bump PR을 `docs/sobaya-installed.md`에 모으고 기존 안내·스킬을 연결 방식에 맞춰 정리한다. 앱 CLAUDE.md를 재생성하지 않는다.

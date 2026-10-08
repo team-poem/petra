@@ -4,7 +4,7 @@ owner: Kangmin_Kim
 started: 2026-10-06
 status: active
 goal: bump : add Sobaya v1.0.0-rc.1 dependency support
-next: 승인된 구형 연결 회귀 7개(d736cb05) 구현, 전체 180개·macOS/Linux·독립 완료 검토
+next: macOS 전체 180개·독립 코드 리뷰 통과. Linux CI와 최종 커밋 완료 검토 확인
 base: main
 ---
 

@@ -19,6 +19,11 @@ jobs:
           repository: team-poem/sobaya
           ref: d06384544e81cd373d81e2a940ab336868e04854
           path: .sobaya-test-source
+      - name: 구형 worktree 연결과 실제 설치기 검증
+        shell: bash
+        env:
+          SOBAYA_TEST_SOURCE: ${{ github.workspace }}/.sobaya-test-source
+        run: bash tests/sobaya-legacy-worktree.sh all
       - name: 공개 rc.1 검증 자산 준비
         shell: bash
         run: |

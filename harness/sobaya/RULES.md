@@ -8,7 +8,7 @@
 | `spec.md`·`failed-test.md` 가 앱 **루트 고정** | 브랜치(기능) 단위로 쓰고 main 에는 두지 않는다. gate·review 뒤 **마지막 커밋**으로 `collab/journal/plans/<날짜-owner-slug>/` 에 옮긴다. 그 뒤 그 브랜치에서 sobaya 명령을 치지 않는다 | handoff 스킬. `check` 가 main 유입을 막음. `pr-body` 가 review HEAD 를 적음 |
 | 워커는 에디터 훅을 **거치지 않는다** | sobaya 명령은 `scripts/collab.sh run -- …` 으로 감싼다. 실행 전 동료가 편집 중인 허브 파일이면 중단(`COLLAB_RUN_FORCE=1` 로 강행), 실행 후 워커가 건드린 허브 파일과 겹침을 보고. 커밋마다 post-commit 이 스냅샷을 올려 동료가 본다. pre-commit 은 허브 편집 경고 | `collab.sh run`, `.githooks/post-commit`, `precommit` |
 | 승인 상태(`state.json`)가 **git-dir 당 하나** | 승인 브랜치가 있는 클론에서 새 브랜치는 워크트리: `scripts/collab.sh worktree <branch>`. wip ref 도 브랜치별이라 워크트리끼리 안 덮어쓴다 | start-work 스킬 |
-| 구형 소스 클론의 `install.sh`가 `core.hooksPath`가 있으면 **거부** | attach/sync 가 install 동안 hooksPath 를 잠깐 풀었다 되돌린다. 우리 `.githooks/pre-commit` 이 sobaya 의 `.git/hooks/pre-commit` 을 이어서 exec | `attach-sobaya.sh` |
+| 구형 설치기는 기존 사용자 pre-commit을 덮어쓰지 않음 | attach/sync/update는 설정 파일을 쓰지 않고 명령 범위의 임시 hooksPath로 설치한다. 실제 공용 사용자 훅·심링크는 보존하며, 성공한 관리 훅만 공용 위치에 게시한다. 우리 `.githooks/pre-commit`이 이어서 exec | `attach-sobaya.sh` |
 | review 가 HEAD 에 **바인딩** | plan 이동 커밋이 review 뒤에 오므로 어긋난다. `pr-body` 가 review HEAD 와 현재 HEAD 를 적어 사람이 확인 | `pr-body` |
 | 구형 Sobaya 소스 루트에 `AGENTS.md`만 있음 | 구형 `attach`가 Sobaya 소스 클론에 `CLAUDE.md -> AGENTS.md` 심링크를 만들고 `.git/info/exclude` 에 넣는다 | `attach-sobaya.sh` |
 | 구형 Sobaya 소스 루트에 `.claude/`가 없고 gitignore도 없음 | 루트 세션 어댑터와 `settings.local.json` 을 `.git/info/exclude` 로 숨긴다 | `attach-sobaya.sh` |
@@ -32,4 +32,4 @@
 
 ## 이 표를 유지하는 방법
 
-구형 `attach-sobaya.sh update` 또는 설치형 후보 bump를 검토할 때 공개 계약과 이 표를 함께 확인한다. 기존 `tests/hooks.sh`·`tests/loop.sh`·`tests/sobaya.sh`와 설치형 `tests/sobaya-installed.sh`를 실행한다. 테스트 입력 변경은 사람이 정확한 교체본을 승인해야 한다. fixture v3는 2026-10-07 사람의 교체 승인을 받아 적용했다. 승인 범위와 정확한 입력은 [승인 기록](../../collab/journal/2026-10-07-Kangmin_Kim-sobaya-v1-fixture-approved.md)에 있다. 실제 소비자 앱의 승인이나 최종 검증은 이 승인으로 대체하지 않는다.
+구형 `attach-sobaya.sh update` 또는 설치형 후보 bump를 검토할 때 공개 계약과 이 표를 함께 확인한다. 기존 `tests/hooks.sh`·`tests/loop.sh`·`tests/sobaya.sh`, 설치형 `tests/sobaya-installed.sh`, 실제 구형 설치기와 연결하는 `tests/sobaya-legacy-worktree.sh`를 실행한다. 테스트 입력 변경은 사람이 정확한 교체본을 승인해야 한다. fixture v3는 [2026-10-07 승인 기록](../../collab/journal/2026-10-07-Kangmin_Kim-sobaya-v1-fixture-approved.md), 구형 회귀 7개는 [2026-10-08 승인 기록](../../collab/journal/2026-10-08-Kangmin_Kim-sobaya-legacy-approved.md)의 정확한 입력을 적용했다. 실제 소비자 앱의 승인이나 최종 검증은 이 승인으로 대체하지 않는다.

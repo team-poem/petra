@@ -1,6 +1,6 @@
 # 구형 worktree 연결 회귀: 테스트 승인 검토
 
-상태: **테스트 초안·RED 재현 완료, 승인 전. 제품 수정과 CI 연결은 아직 하지 않았다.**
+이 문서는 승인 전 제안·RED 검증 이력이다. 사용자는 2026-10-08 아래 정확한 원문과 sync 종료 코드 기준을 승인했다. 현재 승인은 [승인 기록](../../journal/2026-10-08-Kangmin_Kim-sobaya-legacy-approved.md)을 따르며, 아래의 승인 전 표현은 당시 상태를 설명한다.
 
 [PR #5의 솔피 코멘트](https://github.com/team-poem/poem-collaboration-harness-template/pull/5#issuecomment-6033970785)를 실제 공개 소바야 설치기로 재현했다. 새 worktree의 훅 설정은 worktree 범위인데, 구형 어댑터는 공통 설정만 지운다. 설치 실패 뒤에는 없거나 다른 공통 설정을 `.githooks`로 덮어쓰기도 한다.
 

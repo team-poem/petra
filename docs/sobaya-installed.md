@@ -154,11 +154,13 @@ git diff -- sobaya.json sobaya.lock
 
 기존 `harness/attach-sobaya.sh`와 `harness/sobaya.lock`은 소스 클론 방식으로 그대로 사용한다. 구형 lock이나 알려진 구형 Sobaya 관리 훅이 남으면 설치형 연결은 거절한다. 일반 사용자 훅은 보존한다. 충돌을 없애려고 lock·훅·승인 상태를 자동 삭제하지 않는다. 기존 사용자는 구형 연결을 유지하거나 별도 검토한 이전 작업을 진행한다.
 
+구형 attach·sync·update는 새 worktree에서도 공통·worktree의 Git 설정을 그대로 두고 연결한다. 설치기 호출에만 임시 훅 경로를 적용하고, 설치가 성공한 관리 훅을 기존 공용 위치에 게시한다. 공용 pre-commit이 사용자 파일이나 심링크이면 해당 경로를 알리고 중단한다. 설치·게시가 실패하면 임시 파일을 정리하고 어댑터 설정·버전 기록으로 진행하지 않는다. 정상 sync는 종료 코드 0을 반환한다.
+
 구형 연결의 자동 이전, 설치형 신규 릴리스 주간 알림, 진행 중 항목의 버전 간 재개는 후속 범위다. 기존 소스 클론용 주간 알림은 유지한다. Poem 폴더 재배치·라이브러리화·명칭 변경도 이 도입에 포함하지 않는다.
 
 ## 8. 템플릿 유지보수 검증
 
-이 템플릿의 유지보수 테스트는 셸로 실행한다. Sobaya에서 셸 테스트를 앱 TDD로 돌리려고 Node 래퍼를 만들지 않는다. 기존 세 스위트와 설치형 아홉 항목을 함께 검증한다.
+이 템플릿의 유지보수 테스트는 셸로 실행한다. Sobaya에서 셸 테스트를 앱 TDD로 돌리려고 Node 래퍼를 만들지 않는다. 기존 세 스위트 164개, 설치형 아홉 항목, 구형 worktree 회귀 일곱 항목을 함께 검증한다.
 
 ```sh
 sh tests/hooks.sh
@@ -170,12 +172,15 @@ export SOBAYA_TEST_SOURCE="/absolute/path/to/sobaya-source-containing-the-public
 /bin/bash tests/sobaya-installed.sh --support-check
 /bin/bash tests/sobaya-installed.sh --cycle-support
 /bin/bash tests/sobaya-installed.sh all
+/bin/bash tests/sobaya-legacy-worktree.sh all
 ```
 
-`SOBAYA_TEST_SOURCE`는 고정된 공개 커밋의 패키지 생성 스크립트를 확인하고 로컬 bump 후보를 만드는 데만 쓴다. 테스트의 Node는 임시 앱 테스트 실행기다. 후보 `1.0.0-rc.2-fixture`는 공개 rc.1을 다시 묶은 로컬 자료이며 공개 릴리스가 아니다.
+`SOBAYA_TEST_SOURCE`는 공개 커밋 `d06384544e81cd373d81e2a940ab336868e04854`를 포함한 로컬 checkout이다. 설치형 스위트는 이 소스의 패키지 생성 스크립트를 확인하고 로컬 bump 후보를 만든다. 구형 스위트는 별도 임시 clone에서 이 커밋의 실제 설치기를 실행한다. 테스트의 Node는 임시 앱 테스트 실행기다. 후보 `1.0.0-rc.2-fixture`는 공개 rc.1을 다시 묶은 로컬 자료이며 공개 릴리스가 아니다.
 
 두 support 명령은 fixture와 공개 런타임의 사용 가능성을 확인하며 새 어댑터의 합격 증거가 아니다. 결정적인 worker·review 대역은 실제 모델 품질이나 비용을 측정하지 않는다. 테스트 준비 실패, 제품 RED, 도구 부족으로 인한 NOT PROBED를 구분하고 macOS와 Linux의 실제 잠금 분기를 각각 확인한다.
 
 현재 `tests/sobaya-installed.sh`는 fixture 준비 두 곳을 고친 v3 원문이며, SHA-256은 `f264e7533dc994ca30042fcf062963f6157572a7e51fd3bc446b07a98292e62b`다. [사람의 교체 승인](../collab/journal/2026-10-07-Kangmin_Kim-sobaya-v1-fixture-approved.md)에 따라 적용했고 기존 제품 동작 단언을 유지했다. 원문에 남아 있는 DRAFT 주석은 바이트 보존을 위한 것이며 현재 승인 상태는 이 기록을 따른다. [도입 계획](../collab/active/codex--sobaya-v1-adoption/plan.md)은 최초 제안 이력으로 보존하고, 현재 승인·실행 범위는 [구현 검증 기록](../collab/active/codex--sobaya-v1-adoption/implementation.md)에서 확인한다.
 
-CI는 고정된 공개 rc.1 자산을 확보한 뒤 기존 세 스위트와 설치형 아홉 항목을 실행한다. Linux 작업은 `flock`의 가용성과 `shlock`의 부재를 확인해 실제 flock 분기를 검증한다. macOS에서는 shlock 분기를 별도로 실행한다. 승인되지 않은 대조군의 통과나 기존 스위트의 통과만으로 전체 연결 기능을 완료 처리하지 않는다.
+`tests/sobaya-legacy-worktree.sh`는 [2026-10-08 승인 기록](../collab/journal/2026-10-08-Kangmin_Kim-sobaya-legacy-approved.md)의 SHA-256 `d736cb05b581bf44f48918599053dffb6039cc8c57743d9255041d362e7d1b12` 원문이다. DRAFT 주석도 보존했다. 설정 파일을 설치기 호출 전후에 관찰하고 실제 훅의 성공·실패 전달을 검사한다. 실패 사례는 실제 설치기의 chmod만 대역으로 바꾼다. 관찰 래퍼 때문에 임시 소스 clone은 dirty이므로 네트워크 pull은 생략하며 고정 버전의 로컬 재설치를 검증한다.
+
+CI는 고정된 공개 rc.1 소스·자산으로 전체 180개를 실행한다. Linux 작업은 `flock`의 가용성과 `shlock`의 부재를 확인해 실제 flock 분기를 검증한다. macOS에서는 shlock 분기를 별도로 실행한다. 승인되지 않은 대조군의 통과나 기존 스위트의 통과만으로 전체 연결 기능을 완료 처리하지 않는다.
