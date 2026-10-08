@@ -2,13 +2,14 @@
 branch: codex/sobaya-v1-adoption
 owner: Kangmin_Kim
 started: 2026-10-06
-status: active
+status: done
 goal: bump : add Sobaya v1.0.0-rc.1 dependency support
-next: macOS 전체 180개·독립 코드 리뷰 통과. Linux CI와 최종 커밋 완료 검토 확인
+next: 회귀 수정·macOS/Linux 180개·독립 완료 검토 통과. PR #5 재검토와 병합 판단
 base: main
 ---
 
 ## 메모
+- 구형 회귀 수정 커밋 f17eeb5에서 macOS·Linux 전체 180개와 협업 검사, 독립 완료 검토를 확인했다. 인수인계 커밋의 실행 코드·승인 입력·CI는 동일하며 최종 PR 검사 결과는 본문 링크를 따른다. done은 구현·검증 제출이며 병합·출시를 뜻하지 않는다.
 - 2026-10-08 사용자가 SHA-256 `d736cb05b581bf44f48918599053dffb6039cc8c57743d9255041d362e7d1b12`의 7개 입력과 정상 sync의 종료 코드 0 기준을 명시적으로 승인했다. 원문 그대로 새 테스트에 추가하며 기존 승인 입력은 보존한다.
 - 2026-10-08 PR #5의 구형 worktree attach 실패와 공통 hooksPath 오염을 재현했다. 기존 승인 테스트는 보존하고 별도 회귀 테스트를 검토한다. 변경 범위는 harness/attach-sobaya.sh, 새 tests/sobaya-legacy-worktree.sh, 관련 CI·검토·저널 문서다.
 - 2026-10-07 사용자가 v3 교체안 두 곳의 수정을 명시적으로 승인했다. SHA-256 `f264e7533dc994ca30042fcf062963f6157572a7e51fd3bc446b07a98292e62b`의 원문 적용과 설치형 CI 연결을 완료했다.

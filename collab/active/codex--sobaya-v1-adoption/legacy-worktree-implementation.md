@@ -28,9 +28,11 @@
 
 독립 리뷰는 같은 설치 스크립트 해시와 승인 테스트 보존을 확인했고 수정할 결함을 찾지 못했다. 별도 임시 저장소에서 정상 hooks 디렉터리 심링크, dangling 디렉터리 거절, 게시 단계의 mv 실패를 추가 확인했다. 실패 시 어댑터·pin 미실행과 임시 경로 정리도 확인했다. 증거는 `/private/tmp/poem-legacy-implementation-review.TmuuzJ`와 `/private/var/folders/wv/lv2qb3z92074bwd0pncsq3100000gn/T/poem-legacy-draft.hD0Lwo`다.
 
-## 남은 최종 확인
+## Linux CI와 완료 검토
 
-Linux CI에 같은 공개 소스 커밋의 실제 설치기를 사용하는 일곱 항목을 연결했다. 현재 이 기록 시점에는 새 CI 결과와 최종 PR 커밋에 대한 완료 검토가 남아 있다. 통과 후 별도 인수인계 저널과 PR 검증 항목에 실행 URL·revision을 기록한다. 기존 173개 통과만으로 이 회귀를 해결했다고 판단하지 않는다.
+구현 커밋 `f17eeb55d7d3852e08c2b9b9834eff02aca5add1`의 [Linux CI 37739640693](https://github.com/team-poem/poem-collaboration-harness-template/actions/runs/37739640693)에서 전체 180개와 협업 검사가 통과했다. 실제 실행한 PR merge ref는 `2d1330060183e96798cb4e93bf071eda51b6ef12`이며 공개 소스는 d063845에 고정됐다. flock 사전 확인 및 실제 설치형 잠금 분기도 통과했다. 로컬 증거는 `/private/tmp/poem-legacy-linux-f17eeb5.json`과 `/private/tmp/poem-legacy-linux-f17eeb5.log`다.
+
+같은 f17eeb5 커밋의 독립 완료 검토에서도 차단 사항이 없었다. 검토한 코드·CI의 해시가 후보와 같고, 승인된 두 테스트 원문 및 기존 세 스위트가 보존됐으며, 현재 안내가 공유 설정 해제 방식을 지시하지 않는지 확인했다. 이 기록 이후 인수인계 문서 커밋의 실행 코드·테스트·CI가 동일한지도 비교한다. 최신 PR head의 CI 결과는 PR 검사와 본문의 실행 링크를 따른다.
 
 한계: 관찰 래퍼로 임시 소스 clone을 변경하므로 새 테스트의 네트워크 pull은 생략된다. 강제 종료·전원 중단이나 외부 프로세스가 동시에 훅을 교체하는 상황을 검증한 결과는 아니다. 실제 소비자 앱의 테스트 승인·유료 모델 실행·병합·출시는 별도다.
 
@@ -39,4 +41,4 @@ Linux CI에 같은 공개 소스 커밋의 실제 설치기를 사용하는 일�
 Brain: 기존 `thin-shell-needs-a-refuter` 원칙과 같은 교훈이므로 중복 메모는 추가하지 않았다.  
 Skills: 변경 없음.  
 Structural: 실제 공개 설치기와 협업 worktree의 조합, 호출 중 설정 보존, 실행 가능한 훅 전달을 승인 테스트와 CI에 추가했다.  
-Todos: 별도 항목 추가 없음. 남은 CI·완료 검토는 현재 PR에서 마친다.
+Todos: 별도 항목 추가 없음. 후속 병합 판단은 PR 리뷰에서 진행한다.
