@@ -4,11 +4,12 @@ owner: Kangmin_Kim
 started: 2026-10-06
 status: active
 goal: bump : add Sobaya v1.0.0-rc.1 dependency support
-next: 구형 연결 회귀 7개 초안(d736cb05)의 사람 승인 후 설정 보존·sync 종료 코드 수정 및 전체 검증
+next: 승인된 구형 연결 회귀 7개(d736cb05) 구현, 전체 180개·macOS/Linux·독립 완료 검토
 base: main
 ---
 
 ## 메모
+- 2026-10-08 사용자가 SHA-256 `d736cb05b581bf44f48918599053dffb6039cc8c57743d9255041d362e7d1b12`의 7개 입력과 정상 sync의 종료 코드 0 기준을 명시적으로 승인했다. 원문 그대로 새 테스트에 추가하며 기존 승인 입력은 보존한다.
 - 2026-10-08 PR #5의 구형 worktree attach 실패와 공통 hooksPath 오염을 재현했다. 기존 승인 테스트는 보존하고 별도 회귀 테스트를 검토한다. 변경 범위는 harness/attach-sobaya.sh, 새 tests/sobaya-legacy-worktree.sh, 관련 CI·검토·저널 문서다.
 - 2026-10-07 사용자가 v3 교체안 두 곳의 수정을 명시적으로 승인했다. SHA-256 `f264e7533dc994ca30042fcf062963f6157572a7e51fd3bc446b07a98292e62b`의 원문 적용과 설치형 CI 연결을 완료했다.
 - `d89c729`에서 macOS·Linux의 기존 164개와 설치형 9개를 모두 확인했다. 최종 커밋의 결과는 PR 검사와 완료 보고에서 확인한다. done은 구현·인수인계 제출을 뜻하며 병합·출시는 별도다.
