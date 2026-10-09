@@ -22,6 +22,9 @@ const commit = (root) => { git(root, 'add', '-A'); git(root, 'commit', '-qm', 'f
 function app({ empty = false } = {}) {
   const root = fs.mkdtempSync(path.join(temp, '쇼핑몰 app '));
   git(root, 'init', '-q', '-b', 'feat/install');
+  // Git 자체의 비동기 정리가 바이트 보존 비교 도중 lock을 만들지 않게 fixture만 고정한다.
+  git(root, 'config', 'maintenance.auto', 'false');
+  git(root, 'config', 'gc.auto', '0');
   if (!empty) fs.cpSync(path.join(source, 'tests/fixtures/shop'), root, { recursive: true });
   git(root, '-c', 'core.hooksPath=/dev/null', 'commit', '--allow-empty', '-qm', 'baseline');
   if (!empty) commit(root);
