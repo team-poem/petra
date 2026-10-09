@@ -1,8 +1,12 @@
 #!/bin/sh
 # 설치형 소바야를 기존 Poem 프로젝트에 명시적으로 연결한다.
 set -eu
-ROOT=$(cd "$(dirname "$0")/.." && pwd -P)
-. "$ROOT/harness/sobaya/installed-lib.sh"
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+case "$HERE" in
+  */.petra/runtime/harness) ROOT=$(CDPATH= cd -- "$HERE/../../.." && pwd -P) ;;
+  *) ROOT=$(CDPATH= cd -- "$HERE/.." && pwd -P) ;;
+esac
+. "$HERE/sobaya/installed-lib.sh"
 die() { si_error "$@"; exit 2; }
 command=${1:-}; [ "$#" -gt 0 ] && shift
 case "$command" in attach|sync|bump|check) ;; *) die 'usage: attach|sync|bump|check --install-root STORE [options]' ;; esac

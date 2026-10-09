@@ -2,7 +2,9 @@
 
 앱 코드와 README는 프로젝트 루트에 그대로 남는다. PETRA는 `.petra/` 안에 놓고,
 루트 AGENTS와 선택한 에이전트 설정에 작은 연결만 추가한다. 이 문서는 **PETRA가 아직 없는 앱에 최초 설치**하는 절차다.
-기존 템플릿 정리, 구형 기록 이전, 업데이트/롤백과 Sobaya 재연결은 아직 지원하지 않는다.
+기존 템플릿 정리, 구형 기록 이전과 PETRA 업데이트/롤백은 아직 지원하지 않는다.
+새 PETRA 설치를 마친 앱에는 [설치형 Sobaya를 연결](petra-sobaya.md)할 수 있다.
+이미 Sobaya를 사용 중인 앱에 PETRA를 덮어 설치하는 자동 이전과는 다른 절차다.
 
 ## 설치 흐름
 
@@ -28,7 +30,8 @@ sh bin/petra install --target /absolute/path/to/shop --apply --expect-plan <출�
 앱에서 `sh .petra/bin/petra join solp`를 실행한다. 동료는 설치 PR을 받은 뒤 자기 clone에서 `join amazon`을 실행한다.
 
 설치된 앱에서 `sh .petra/bin/petra verify`로 파일과 연결을 검사할 수 있다.
-같은 배포물과 옵션으로 설치를 반복하면 파일·권한·mtime과 설정을 다시 쓰지 않는다.
+Sobaya를 연결하기 전, 같은 배포물과 옵션으로 설치를 반복하면 파일·권한·mtime과 설정을 다시 쓰지 않는다.
+Sobaya 연결 후에는 설치기를 재실행하지 않는다. 협업 합류는 `join`, 팀 런타임 준비는 `sobaya sync`를 사용한다.
 
 ## 무엇이 보존되나
 
@@ -79,4 +82,4 @@ sh scripts/petra-lab.sh test
 내부 실험실의 `up/reset`도 이제 쇼핑몰에 실제 dry-run/apply를 거친 뒤 solp·amazon clone을 만든다.
 기존 수동 환경은 `up`으로 보존되며 최신 설치기로 바꾸려면 세션을 닫고 `reset`한다.
 CI는 Linux/macOS에서 설치 보존·실패 주입·강제 종료와 기존 협업 시나리오를 검사하고 `install.log`를 보관한다.
-모델 호출을 흉내 낸 성공이나 이 테스트 통과를 Sobaya 신규 연결 완료로 표시하지 않는다.
+이 설치 테스트만으로 Sobaya 실행을 검증했다고 하지 않는다. 별도의 [소비자 Sobaya 검증](petra-sobaya.md#검증-범위)이 공개 런타임과 고정 워커로 연결·개발 루프를 검사한다.

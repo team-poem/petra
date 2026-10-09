@@ -8,6 +8,8 @@
 
 최초 설치는 검토한 PETRA 제작 리포의 `sh bin/petra install --target <앱 루트> --dry-run`으로 확인하고, 출력된 plan_id를 `--apply --expect-plan <id>`에 전달한다. 설치는 커밋·push나 Git 설정 변경을 하지 않는다. 결과를 검토해 커밋한 뒤 각 팀원이 join한다. Git, jq, Node.js 22 이상이 필요하다.
 
-구형 하네스 이전, 업데이트, 롤백, Sobaya 신규 연결은 후속 구현이다. 기존 사용자 Git 훅이나 별도 hooksPath는 자동으로 감싸지 않고 설치 전에 멈춘다. Claude의 얇은 훅 연결은 기존 설정에 추가한다. Codex는 자동 훅을 보장하지 않으며 AGENTS에서 같은 CLI를 직접 호출한다. 패키지 검증과 실제 에이전트 검증을 혼동하지 않는다.
+구형 하네스 이전과 PETRA 업데이트·롤백은 후속 구현이다. 기존 사용자 Git 훅이나 별도 hooksPath는 자동으로 감싸지 않고 설치 전에 멈춘다. Claude의 얇은 훅 연결은 기존 설정에 추가한다. Codex는 자동 훅을 보장하지 않으며 AGENTS에서 같은 CLI를 직접 호출한다. 패키지 검증과 실제 에이전트 검증을 혼동하지 않는다.
+
+새 설치를 마친 뒤에는 `sh .petra/bin/petra sobaya attach|sync|bump|check --install-root <외부 개인 저장소>`로 설치형 Sobaya를 연결할 수 있다. PETRA는 협업을, Sobaya는 승인된 테스트의 구현·검증을 맡는다. 팀 버전은 루트의 `sobaya.json`·`sobaya.lock`이며 새 버전은 PR로 검토하고 각자가 sync한다. 자동 최신 업데이트는 하지 않는다. 연결 전 준비와 승인 경계는 [협업 계약](AGENTS.md)의 Sobaya 절을 읽는다.
 
 설치가 강제 종료되면 Git 메타데이터의 `petra-install.lock/backup.json`을 남기고 verify/join이 멈춘다. 백업을 보존하고 실제 변경 파일을 확인한 뒤 수동 복구한다. 잠금만 지워 설치를 정상으로 취급하지 않는다.

@@ -1,5 +1,5 @@
 #!/bin/sh
-# 기존 프로젝트를 건드리지 않는 개발용 staging 패키지. 설치기는 후속 단계다.
+# 기존 프로젝트를 건드리지 않는 staging 패키지. 적용은 install이 맡는다.
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
 [ $# -eq 1 ] || { echo '사용법: sh bin/petra pack <존재하지 않는 경로>' >&2; exit 1; }
@@ -11,6 +11,7 @@ cp "$ROOT/bin/petra" "$out/.petra/bin/petra"
 cp "$ROOT/scripts/collab.sh" "$out/.petra/runtime/scripts/collab.sh"
 for file in lib.sh guard.sh session-start.sh post-edit.sh stop.sh; do cp "$ROOT/harness/hooks/$file" "$out/.petra/runtime/harness/hooks/$file"; done
 cp "$ROOT/harness/sobaya/installed-lib.sh" "$out/.petra/runtime/harness/sobaya/installed-lib.sh"
+cp "$ROOT/harness/sobaya-installed.sh" "$out/.petra/runtime/harness/sobaya-installed.sh"
 cp "$ROOT/harness/verify-petra.sh" "$out/.petra/runtime/harness/verify-petra.sh"
 cp "$ROOT/harness/petra-files.mjs" "$out/.petra/runtime/harness/petra-files.mjs"
 cp "$ROOT/collab/templates/claim.md" "$out/.petra/templates/claim.md"

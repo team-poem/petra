@@ -72,6 +72,21 @@ jobs:
       - name: 실험실 재사용·초기화와 두 clone 협업 검증
         env: { PETRA_LAB_TEST_NAME: ci }
         run: sh tests/petra-lab.sh
+      - name: PETRA 소비자용 공개 Sobaya 자산 준비
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/petra-sobaya-assets"
+          for asset in install-runtime.sh sobaya-1.0.0-rc.1.json sobaya-1.0.0-rc.1.tar.gz; do
+            curl --fail --location --retry 3 \
+              "https://github.com/team-poem/sobaya/releases/download/v1.0.0-rc.1/$asset" \
+              --output "$RUNNER_TEMP/petra-sobaya-assets/$asset"
+          done
+      - name: 새 PETRA 설치본의 Sobaya 연결·개발 루프 검증
+        shell: bash
+        env:
+          SOBAYA_TEST_ASSETS: ${{ runner.temp }}/petra-sobaya-assets
+        # 세 자산의 고정 해시를 검사한다. 모델만 고정 worker로 대체한다.
+        run: node --test tests/petra-sobaya.test.mjs
       - name: 실행 결과·진단 로그 보관
         if: always()
         uses: actions/upload-artifact@v4

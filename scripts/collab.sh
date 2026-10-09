@@ -132,7 +132,9 @@ digest)
     printf ']}\n'
   else
     echo "# 협업 현황 (자동 주입) · 나: @$ME · 브랜치: ${BR:-?}${fetch_note:+ · $fetch_note}"
-    collab_hooks_on || echo "! git 훅이 꺼져 있거나 연결이 충돌합니다 → 설치형 연결은 sobaya-installed.sh check 로 확인하고, 일반 연결은 harness/join.sh 로 준비하세요."
+    sobaya_cmd='sh harness/sobaya-installed.sh'; join_cmd='sh harness/join.sh'
+    if [ "$RUNTIME_ROOT" != "$ROOT" ]; then sobaya_cmd='sh .petra/bin/petra sobaya'; join_cmd='sh .petra/bin/petra join'; fi
+    collab_hooks_on || echo "! git 훅이 꺼져 있거나 연결이 충돌합니다 → 설치형 연결은 $sobaya_cmd check 로 확인하고, 일반 연결은 $join_cmd 로 준비하세요."
     mr="$(branch_merged_reason "$BR" 2>/dev/null)" && echo "! 이 브랜치는 이미 머지됐습니다 ($mr). 여기 더 커밋하지 말고 새 브랜치를 파세요 (push 는 pre-push 가 막습니다)."
     echo; echo "## 나에게 온 질문·메시지 (답은 내 저널 이벤트에 'reply @상대' 로)"
     if [ -s "$A" ]; then while IFS="$TAB" read -r id b o j txt; do echo "- @$o ($b): $txt"; done < "$A"; else echo "- 없음"; fi
@@ -156,9 +158,9 @@ digest)
       version="$(jq -r '.runtime.version // "invalid"' "$ROOT/sobaya.json" 2>/dev/null || echo invalid)"
       if sobaya_connection_status >/dev/null 2>&1; then
         echo "- sobaya $version · 이 worktree의 설치형 연결 확인$(sobaya_approved && echo ' · 승인 상태 있음(main 따라잡기는 merge)')"
-        echo "  연결 확인은 선택 버전의 설치 준비 검사가 아닙니다. 팀 pin이 바뀌었다면 sh harness/sobaya-installed.sh sync --install-root STORE 로 이 버전을 준비하세요."
+        echo "  연결 확인은 선택 버전의 설치 준비 검사가 아닙니다. 팀 pin이 바뀌었다면 $sobaya_cmd sync --install-root STORE 로 이 버전을 준비하세요."
       else
-        echo "- sobaya $version · 개인 저장소로 sobaya-installed.sh sync --install-root STORE 후, 기능 명세를 준비해 attach 하세요. 기존 연결이 있으면 check 로 충돌부터 확인하세요."
+        echo "- sobaya $version · 개인 저장소로 $sobaya_cmd sync --install-root STORE 후, 기능 명세를 준비해 attach 하세요. 기존 연결이 있으면 check 로 충돌부터 확인하세요."
       fi
     elif sr="$(sobaya_root)"; then lk="$(sobaya_lock)"; hd="$(git -C "$sr" rev-parse --short HEAD 2>/dev/null)"
       echo; echo "## 개발 하네스 (sobaya)"
