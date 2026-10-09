@@ -1,5 +1,8 @@
 #!/bin/sh
 # 보호 브랜치로의 직접 push 차단, 저널 없는 push 경고. stdin(refspec 줄들)을 collab.sh 에 그대로 넘긴다.
 root="$(git rev-parse --show-toplevel)" || exit 0
+if [ -e "$root/.petra/manifest.json" ]; then
+  exec sh "$root/.petra/bin/petra" prepush
+fi
 [ -f "$root/scripts/collab.sh" ] || exit 0
 sh "$root/scripts/collab.sh" prepush

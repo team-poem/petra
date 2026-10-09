@@ -15,8 +15,10 @@
 #   prepush                     git pre-push 가 부른다. 보호 브랜치로의 push 차단, 저널 없는 push 경고
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd -P)"
-export CLAUDE_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$HERE/.." && pwd -P)}"
-. "$CLAUDE_PROJECT_DIR/harness/hooks/lib.sh"
+RUNTIME_ROOT="$(cd "$HERE/.." && pwd -P)"
+export RUNTIME_ROOT
+export CLAUDE_PROJECT_DIR="${PETRA_PROJECT_ROOT:-${CLAUDE_PROJECT_DIR:-$RUNTIME_ROOT}}"
+. "$RUNTIME_ROOT/harness/hooks/lib.sh"
 cd "$ROOT" || exit 1
 ME="$(me)"; BR="$(current_branch)"; MAIN="$(main_ref || true)"
 
@@ -44,7 +46,7 @@ imported_by_me() {  # 내 파일이 그 경로를 import 하는가. 직접(dir/f
 $dir
 $(basename "$dir")/$file"
   printf '%s\n' "$keys" | sort -u | while IFS= read -r k; do [ -n "$k" ] || continue
-    printf '%s\n' "$MYF" | xargs grep -lE -- "from ['\"][^'\"]*$k(/[^'\"]*)?['\"]|require\(['\"][^'\"]*$k" 2>/dev/null | grep -q . && echo hit; done | grep -q hit; }
+    printf '%s\n' "$MYF" | xargs grep -lE -- "from ['\"][^'\"]*$k(\\.[a-zA-Z0-9]+|/[^'\"]*)?['\"]|require\(['\"][^'\"]*$k" 2>/dev/null | grep -q . && echo hit; done | grep -q hit; }
 # 이벤트가 나에게 영향 있는가: type, path
 affects_me() { case "$1" in
   changed|migrated|removed) [ "$2" != "-" ] && { printf '%s\n' "$MYF" | grep -qx "$2" || imported_by_me "$2"; } ;;
@@ -53,8 +55,9 @@ affects_me() { case "$1" in
   *) return 1 ;; esac; }
 # 다른 사람 저널들: "ref<TAB>path<TAB>branch<TAB>owner" (미머지 브랜치 저널 전부 + main 의 최근 저널)
 other_journals() {
-  _oj() { for j in $(unmerged_files "$3" "$JOURNAL_DIR"); do printf '%s\t%s\t%s\t%s\n' "$3" "$j" "$1" "$(journal_owner "$j")"; done; }; for_each_other_claim _oj
-  cut="$(cutoff_date)"; [ -n "$MAIN" ] && for j in $(g ls-tree -r --name-only "$MAIN" -- "$JOURNAL_DIR" 2>/dev/null | grep -v README); do
+  _oj() { rd="$(records_for_ref "$3")" || return 0; for j in $(unmerged_files "$3" "$rd/journal"); do printf '%s\t%s\t%s\t%s\n' "$3" "$j" "$1" "$(journal_owner "$j")"; done; }; for_each_other_claim _oj
+  cut="$(cutoff_date)"; main_records="$(records_for_ref "${MAIN:-HEAD}")" || return 0
+  [ -n "$MAIN" ] && for j in $(g ls-tree -r --name-only "$MAIN" -- "$main_records/journal" 2>/dev/null | grep -v README); do
     [ "$(basename "$j" | cut -c1-10)" \< "$cut" ] && continue; o="$(journal_owner "$j")"; [ "$o" = "$ME" ] && continue
     printf '%s\t%s\t%s\t%s\n' "$MAIN" "$j" "main" "$o"; done
 }
@@ -247,16 +250,16 @@ pr-body)
   [ "$base" != "$MAIN" ] && { echo; echo "> 스택 PR: base 는 \`${base#origin/}\` 입니다. 아래 브랜치가 먼저 머지돼야 합니다."; }
   echo; echo "## 변경 요약"
   if [ -n "$mb" ]; then
-    g diff --stat "$mb" HEAD -- . ':!collab' 2>/dev/null | sed '$d' | sed 's/^ *//' | head -n 10 | sed 's/^/- /'
-    tot="$(g diff --shortstat "$mb" HEAD -- . ':!collab' 2>/dev/null | sed 's/^ *//')"; n="$(g diff --name-only "$mb" HEAD -- . ':!collab' 2>/dev/null | grep -c . || echo 0)"
+    g diff --stat "$mb" HEAD -- . ':!collab' ':!.petra/collab' 2>/dev/null | sed '$d' | sed 's/^ *//' | head -n 10 | sed 's/^/- /'
+    tot="$(g diff --shortstat "$mb" HEAD -- . ':!collab' ':!.petra/collab' 2>/dev/null | sed 's/^ *//')"; n="$(g diff --name-only "$mb" HEAD -- . ':!collab' ':!.petra/collab' 2>/dev/null | grep -c . || echo 0)"
     [ "$n" -gt 10 ] && echo "- … 외 $((n-10))개 파일"; [ -n "$tot" ] && { echo; echo "$tot"; }
   else echo "- (base 를 찾을 수 없어 요약 생략)"; fi
   echo; echo "## 검증"; echo "<!-- 실제로 돌린 것만 -->"
   ev="$(for j in $(ls "$JOURNAL_DIR"/*-"$ME"-*.md 2>/dev/null | sort); do g cat-file -e "$base:$j" 2>/dev/null && continue; md_section "$j" "이벤트" | grep -E '^\s*-\s*(changed|added|removed|migrated|dep|rule|supersedes)\b'; done | sed 's/^[[:space:]]*-[[:space:]]*/- /' | sort -u | grep . || true)"
   if [ -n "$ev" ]; then echo; printf '<details><summary>동료 에이전트용 이벤트 (%s줄) — 저널에서</summary>\n\n%s\n\n</details>\n' "$(printf '%s\n' "$ev" | grep -c .)" "$ev"; fi
   ovf="$CACHE/_prov"; : > "$ovf"
-  _pov() { for f in $(g diff --name-only "$(g merge-base "$base" "$3" 2>/dev/null)" "$3" 2>/dev/null | grep -v '^collab/'); do
-      g diff --name-only "$mb" HEAD -- . ':!collab' 2>/dev/null | grep -qx "$f" && printf -- '- `%s` ← @%s (%s)\n' "$f" "${4:-?}" "$1" >> "$ovf"; done; }
+  _pov() { for f in $(g diff --name-only "$(g merge-base "$base" "$3" 2>/dev/null)" "$3" 2>/dev/null | grep -Ev '^(collab|\.petra/collab)/'); do
+      g diff --name-only "$mb" HEAD -- . ':!collab' ':!.petra/collab' 2>/dev/null | grep -qx "$f" && printf -- '- `%s` ← @%s (%s)\n' "$f" "${4:-?}" "$1" >> "$ovf"; done; }
   [ -n "$mb" ] && for_each_other_claim _pov
   if [ -s "$ovf" ]; then n="$(grep -c . "$ovf")"; echo
     printf '<details><summary>다른 열린 브랜치와 겹친 파일 (%s개) — 먼저 머지되는 쪽이 이깁니다</summary>\n\n' "$n"
@@ -329,7 +332,7 @@ check)
   others="$(printf '%s\n' "$files" | grep "^$CLAIM_DIR/" | grep -v "^$(claim_dir_for "$branch")/" | grep -v README || true)"; [ -n "$others" ] && V "다른 브랜치의 claim 을 건드림: $(echo "$others" | tr '\n' ' ')"
   agent=false; g log --format='%(trailers:key=Assisted-by,valueonly)' "$mb..HEAD" 2>/dev/null | grep -q . && agent=true
   # 다른 열린 브랜치와 같은 파일을 바꿨는가 (정보)
-  ov=""; _ov() { for f in $(g diff --name-only "$(g merge-base "$base" "$3")" "$3" 2>/dev/null | grep -v '^collab/'); do printf '%s\n' "$files" | grep -qx "$f" && ov="$ov $f(@$(claim_get "$2" owner))"; done; }; for_each_other_claim _ov
+  ov=""; _ov() { for f in $(g diff --name-only "$(g merge-base "$base" "$3")" "$3" 2>/dev/null | grep -Ev '^(collab|\.petra/collab)/'); do printf '%s\n' "$files" | grep -qx "$f" && ov="$ov $f(@$(claim_get "$2" owner))"; done; }; for_each_other_claim _ov
   echo "검사: $branch (base $base)"
   [ -n "$viol" ] && printf '%s' "$viol" | sed 's/^/✗ /' || echo "✓ 규칙 위반 없음"
   [ -n "$ov" ] && echo "! 다른 열린 브랜치와 같은 파일을 바꿈:$ov — 먼저 머지되는 쪽이 이기고 나중 쪽이 rebase 한다"
