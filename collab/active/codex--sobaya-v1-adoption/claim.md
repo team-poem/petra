@@ -2,13 +2,14 @@
 branch: codex/sobaya-v1-adoption
 owner: Kangmin_Kim
 started: 2026-10-06
-status: done
+status: active
 goal: bump : add Sobaya v1.0.0-rc.1 dependency support
-next: 회귀 수정·macOS/Linux 180개·독립 완료 검토 통과. PR #5 재검토와 병합 판단
+next: PR #5 추가 리뷰의 혼합 연결 차단·pin 변경 후 sync 안내 회귀 초안과 RED 근거 검토. 정확한 새 테스트 승인 뒤 구현
 base: main
 ---
 
 ## 메모
+- 2026-10-09 사용자가 추가 리뷰 대응 진행을 요청했다. 기존 180개 승인 입력은 보존하며 collab/active의 새 회귀 초안·설명·저널만 먼저 작성한다. 이후 구현 예정 범위는 harness/attach-sobaya.sh, scripts/collab.sh 및 관련 테스트·문서·CI다.
 - 구형 회귀 수정 커밋 f17eeb5에서 macOS·Linux 전체 180개와 협업 검사, 독립 완료 검토를 확인했다. 인수인계 커밋의 실행 코드·승인 입력·CI는 동일하며 최종 PR 검사 결과는 본문 링크를 따른다. done은 구현·검증 제출이며 병합·출시를 뜻하지 않는다.
 - 2026-10-08 사용자가 SHA-256 `d736cb05b581bf44f48918599053dffb6039cc8c57743d9255041d362e7d1b12`의 7개 입력과 정상 sync의 종료 코드 0 기준을 명시적으로 승인했다. 원문 그대로 새 테스트에 추가하며 기존 승인 입력은 보존한다.
 - 2026-10-08 PR #5의 구형 worktree attach 실패와 공통 hooksPath 오염을 재현했다. 기존 승인 테스트는 보존하고 별도 회귀 테스트를 검토한다. 변경 범위는 harness/attach-sobaya.sh, 새 tests/sobaya-legacy-worktree.sh, 관련 CI·검토·저널 문서다.
