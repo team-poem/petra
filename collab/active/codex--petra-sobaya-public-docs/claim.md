@@ -2,7 +2,7 @@
 branch: codex/petra-sobaya-public-docs
 owner: solp
 started: 2026-10-10
-status: active
+status: done
 goal: PETRA 설치본의 Sobaya 연결과 공개 한국어·영어 소개를 완성한다
 next:
 base:
