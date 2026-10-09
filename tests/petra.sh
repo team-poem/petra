@@ -2,11 +2,27 @@
 # 실제 bare 원격과 서로 다른 소비 프로젝트 clone으로 경로/협업을 검증한다.
 set -eu
 SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
-TMP=$(mktemp -d "${TMPDIR:-/tmp}/petra-consumer.XXXXXX")
-trap '[ "${PETRA_KEEP_FIXTURE:-0}" = 1 ] || rm -rf "$TMP"' EXIT HUP INT TERM
-unset CLAUDE_PROJECT_DIR PETRA_PROJECT_ROOT RUNTIME_ROOT GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR
-export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null
-export GIT_AUTHOR_NAME=fixture GIT_AUTHOR_EMAIL=fixture@example.invalid GIT_COMMITTER_NAME=fixture GIT_COMMITTER_EMAIL=fixture@example.invalid
+. "$SOURCE/tests/support/petra-fixture.sh"
+petra_fixture_isolate
+case "$#:${1:-}" in
+  0:) TMP=$(mktemp -d "${TMPDIR:-/tmp}/petra-consumer.XXXXXX") ;;
+  2:--keep-at)
+    [ ! -e "$2" ] && [ ! -L "$2" ] || { echo '테스트 결과 경로가 이미 있습니다' >&2; exit 1; }
+    mkdir -p "$2"; TMP=$(CDPATH= cd -- "$2" && pwd -P); PETRA_KEEP_FIXTURE=1 ;;
+  *) echo '사용법: sh tests/petra.sh [--keep-at <새 경로>]' >&2; exit 1 ;;
+esac
+finish() {
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "실패 현황: $TMP" >&2
+    for log in "$TMP"/*.out; do [ ! -f "$log" ] || { printf '\n%s\n' "${log##*/}" >&2; tail -n 40 "$log" >&2; }; done
+  fi
+  [ "${PETRA_KEEP_FIXTURE:-0}" = 1 ] || rm -rf "$TMP"
+  exit "$rc"
+}
+trap finish EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM HUP
 count=0
 ok() { count=$((count+1)); printf 'ok %s - %s\n' "$count" "$1"; }
 has() { grep -qF -- "$2" "$1" || { echo "실패: $2 ($1)" >&2; cat "$1" >&2; exit 1; }; ok "$3"; }
@@ -31,18 +47,7 @@ ok '관리 파일 해시와 Git 훅 권한 검증'
 ok '제작 리포의 앱 문서/테스트가 배포되지 않음'
 [ "$(find "$TMP/package/.petra/collab" -type f ! -name README.md | wc -l | tr -d ' ')" = 0 ]
 ok '실제 팀 claim/저널이 배포되지 않음'
-git init -q --bare --initial-branch=main "$TMP/origin.git"
-git init -q --initial-branch=main "$TMP/package"
-mkdir -p "$TMP/package/lib" "$TMP/package/app"
-printf '# 쇼핑몰\n프로젝트가 소유하는 README.\n' > "$TMP/package/README.md"
-printf '# 쇼핑몰 에이전트 계약\n- Test: `node --test`\n협업은 .petra/AGENTS.md를 읽고 시작한다.\n' > "$TMP/package/AGENTS.md"
-printf 'export const price = (value) => value;\n' > "$TMP/package/lib/price.js"
-printf '{}\n' > "$TMP/package/package.json"
-commit "$TMP/package" '쇼핑몰 초기 코드'
-git -C "$TMP/package" remote add origin "$TMP/origin.git"
-git -C "$TMP/package" push -qu origin main
-git clone -q "$TMP/origin.git" "$TMP/solp"
-git clone -q "$TMP/origin.git" "$TMP/amazon"
+petra_fixture_seed "$SOURCE" "$TMP"
 A="$TMP/solp"; B="$TMP/amazon"
 mkdir -p "$A/app" "$B/app"
 before=$(shasum -a 256 "$A/README.md" "$A/AGENTS.md")
@@ -75,7 +80,7 @@ commit "$A" '가격 함수 계약 공유'
 p "$B" digest --fetch > "$TMP/events.out"
 has "$TMP/events.out" 'currency 인자가 추가됨' '다른 파일의 import 관계로 변경 이벤트 도착'
 has "$TMP/events.out" 'KRW' '질문 수신'
-printf '{"editing":"amazon"}\n' > "$B/package.json"
+printf '{"type":"module","editing":"amazon"}\n' > "$B/package.json"
 p "$B" pulse > "$TMP/pulse.out"
 p "$A" digest --fetch > "$TMP/wip.out"
 deny p "$A" guard "$A/package.json"

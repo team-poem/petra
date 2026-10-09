@@ -3,3 +3,4 @@
 .claude/cache/
 node_modules/
 *.log
+.petra-lab/

@@ -46,7 +46,7 @@ imported_by_me() {  # 내 파일이 그 경로를 import 하는가. 직접(dir/f
 $dir
 $(basename "$dir")/$file"
   printf '%s\n' "$keys" | sort -u | while IFS= read -r k; do [ -n "$k" ] || continue
-    printf '%s\n' "$MYF" | xargs grep -lE -- "from ['\"][^'\"]*$k(\\.[a-zA-Z0-9]+|/[^'\"]*)?['\"]|require\(['\"][^'\"]*$k" 2>/dev/null | grep -q . && echo hit; done | grep -q hit; }
+    printf '%s\n' "$MYF" | xargs grep -lE -- "from ['\"][^'\"]*$k(\\.[a-zA-Z0-9]+|/[^'\"]*)?['\"]|require\(['\"][^'\"]*$k" 2>/dev/null | grep -q . && echo hit; done | grep hit >/dev/null; }
 # 이벤트가 나에게 영향 있는가: type, path
 affects_me() { case "$1" in
   changed|migrated|removed) [ "$2" != "-" ] && { printf '%s\n' "$MYF" | grep -qx "$2" || imported_by_me "$2"; } ;;
