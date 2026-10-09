@@ -112,12 +112,18 @@ export function applyInstall(plan, expected, { beforeWrite = () => {}, afterWrit
     if (!value) { fs.unlinkSync(file); return; }
     const temp = path.join(path.dirname(file), `.petra-write-${process.pid}`);
     let created = false;
+    let descriptor;
     try {
-      fs.writeFileSync(temp, Buffer.from(value.bytes, 'base64'), { flag: 'wx', mode: value.mode });
+      descriptor = fs.openSync(temp, 'wx', value.mode);
       created = true;
-      fs.chmodSync(temp, value.mode);
+      fs.writeFileSync(descriptor, Buffer.from(value.bytes, 'base64'));
+      fs.fchmodSync(descriptor, value.mode);
+      fs.closeSync(descriptor); descriptor = undefined;
       fs.renameSync(temp, file);
-    } finally { if (created && exists(temp)) fs.unlinkSync(temp); }
+    } finally {
+      if (descriptor !== undefined) fs.closeSync(descriptor);
+      if (created && exists(temp)) fs.unlinkSync(temp);
+    }
   }
   try {
     save();

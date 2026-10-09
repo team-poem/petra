@@ -298,3 +298,18 @@ test('설치 파일이 gitignore에 가려져 동료에게 빠지는 경우를 �
   assert.throws(() => planInstall(pkg, root), /Git에서 제외/);
   assert.deepEqual(tree(root), before);
 });
+test('디스크 쓰기가 일부만 성공한 뒤 실패해도 임시 파일과 이번 변경을 복구한다', () => {
+  const root = app(), plan = planInstall(pkg, root), before = tree(root);
+  const originalWrite = fs.writeFileSync;
+  try {
+    fs.writeFileSync = (file, ...args) => {
+      if (typeof file === 'number') {
+        originalWrite(file, 'partial write');
+        throw new Error('ENOSPC fixture');
+      }
+      return originalWrite(file, ...args);
+    };
+    assert.throws(() => applyInstall(plan, plan.plan_id), /ENOSPC fixture.*\n이번 설치 변경은 복구/);
+  } finally { fs.writeFileSync = originalWrite; }
+  assert.deepEqual(tree(root), before);
+});
