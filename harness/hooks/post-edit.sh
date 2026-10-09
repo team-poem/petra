@@ -31,7 +31,7 @@ fi
 cnt="$CACHE/edits"; n=$(( $(cat "$cnt" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$cnt"
 last=$(cat "$CACHE/pulse.at" 2>/dev/null || echo 0); age=$(( $(now_epoch) - last ))
 if [ $(( n % PULSE_EVERY_EDITS )) -eq 0 ] || [ "$age" -ge "$PULSE_MAX_AGE_SEC" ]; then
-  p="$(sh "$RUNTIME_ROOT/scripts/collab.sh" pulse 2>/dev/null)"; [ -n "$p" ] && msgs="$msgs$p
+  p="$(sh "$RUNTIME_ROOT/scripts/collab.sh" pulse 2>&1)"; [ -n "$p" ] && msgs="$msgs$p
 "
 fi
 [ -z "$msgs" ] && exit 0

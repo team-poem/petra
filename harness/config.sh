@@ -19,6 +19,8 @@ HOTSPOTS="package.json package-lock.json pnpm-lock.yaml yarn.lock prisma/schema.
 # pulse(원격 당겨오기 + 내 작업 트리 스냅샷 올리기) 주기: 수정 N회마다, 또는 마지막 pulse 후 S초
 PULSE_EVERY_EDITS=15
 PULSE_MAX_AGE_SEC=900
+WORKER_SHARE_SEC=60
+SHARE_TIMEOUT_SEC=10
 
 # 동료의 작업 트리 스냅샷(refs/wip/<owner>)이 이보다 오래됐으면 "지금 만지는 중" 으로 보지 않는다
 WIP_STALE_SEC=7200

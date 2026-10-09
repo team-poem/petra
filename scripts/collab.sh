@@ -23,9 +23,7 @@ cd "$ROOT" || exit 1
 ME="$(me)"; BR="$(current_branch)"; MAIN="$(main_ref || true)"
 
 # ---- 헬퍼 ------------------------------------------------------------------
-do_fetch() { g fetch -q --prune origin '+refs/heads/*:refs/remotes/origin/*' '+refs/wip/*:refs/wip/*' >/dev/null 2>&1 & pid=$!
-  i=0; while kill -0 $pid 2>/dev/null && [ $i -lt "${1:-8}" ]; do sleep 1; i=$((i+1)); done
-  if kill -0 $pid 2>/dev/null; then kill $pid 2>/dev/null; return 1; fi; wait $pid; }
+do_fetch() { share_fetch "${1:-8}"; }
 unmerged_files() { if [ -n "$MAIN" ]; then g diff --name-only --diff-filter=A "$MAIN...$1" -- "$2" 2>/dev/null; else g ls-tree -r --name-only "$1" -- "$2" 2>/dev/null; fi | grep -v '/README\.md$'; }
 journal_owner() { basename "$1" | sed -E 's/^[0-9]{4}-[0-9]{2}-[0-9]{2}-([^-]+)-.*/\1/'; }
 my_last_journal_date() { ls "$JOURNAL_DIR"/*-"$ME"-*.md 2>/dev/null | sort | tail -n1 | xargs -I{} basename {} | cut -c1-10; }
@@ -76,7 +74,9 @@ state)
   remote="$(g remote get-url origin 2>/dev/null || true)"; sr="$(sobaya_root 2>/dev/null || true)"; lk="$(sobaya_lock)"
   ghok="$(command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && echo yes || echo no)"
   testcmd="$(sed -n 's/^- Test:[[:space:]]*//p' AGENTS.md 2>/dev/null | head -n1)"
-  if [ "$(g config collab.onboarded 2>/dev/null)" = true ]; then st=ready
+  if [ -f "$ROOT/.petra/manifest.json" ]; then
+    if [ -n "$handle" ] && [ "$hooks" = on ]; then st=ready; else st=join; fi
+  elif [ "$(g config collab.onboarded 2>/dev/null)" = true ]; then st=ready
   elif [ $ph = 1 ]; then st=setup
   elif [ -z "$handle" ] || [ "$hooks" = off ] || { [ -n "$lk" ] && [ -n "$sr" ] && [ "$(git -C "$sr" rev-parse HEAD 2>/dev/null)" != "$lk" ]; }; then st=join
   else st=ready; fi
@@ -84,16 +84,18 @@ state)
     "$st" "$(basename "$ROOT")" "${remote:--}" "$ph" "${handle:--}" "$hooks" "${sr:--}" "${lk:--}" "$ghok" "${testcmd:--}" ;;
 
 digest)
-  fetch_note=""; json=0; for a in "$@"; do case "$a" in --fetch) do_fetch 8 && fetch_note="원격 갱신됨" || fetch_note="원격 갱신 실패 — 동료 상태가 오래됐을 수 있음" ;; --json) json=1 ;; esac; done
+  fetch_note=""; json=0; for a in "$@"; do case "$a" in --fetch) do_fetch 8 && fetch_note="원격 갱신됨" || fetch_note="원격 갱신 실패 — 동료 상태가 오래됐을 수 있음" ;; --json) json=1 ;; --session) rm -f "$SEEN" "$ASKED" ;; *) echo "알 수 없는 digest 옵션: $a" >&2; exit 1 ;; esac; done
   wip_table; MYF="$(my_files)"; MINE="$(claim_path_for "$BR")"; lastj="$(my_last_journal_date)"
   # 수집: asks, events, others, overlaps → 임시 파일
-  A="$CACHE/_asks"; E="$CACHE/_events"; O="$CACHE/_others"; V="$CACHE/_overlaps"; SUP="$CACHE/_sup"; MYB="$CACHE/_mybranches"
+  scratch="$(mktemp -d "$CACHE/digest.XXXXXX")" || exit 1
+  trap 'rm -rf "$scratch"' EXIT
+  A="$scratch/asks"; E="$scratch/events"; O="$scratch/others"; V="$scratch/overlaps"; SUP="$scratch/sup"; MYB="$scratch/mybranches"
   : > "$A"; : > "$E"; : > "$O"; : > "$V"; : > "$SUP"; : > "$MYB"
-  : > "$CACHE/_ids"
+  : > "$scratch/ids"
   other_journals | sort -t"$TAB" -k2 | while IFS="$TAB" read -r ref j b o; do
     jd="$(basename "$j" | cut -c1-10)"; tmp="$(mktemp)"; g show "$ref:$j" > "$tmp" 2>/dev/null
     md_section "$tmp" "이벤트" | while IFS= read -r line; do
-      id="$(event_id "$j|$line")"; grep -qxF "$id" "$CACHE/_ids" && continue; echo "$id" >> "$CACHE/_ids"; ev="$(printf '%s\n' "$line" | parse_event)"; t="${ev%%$TAB*}"; rest="${ev#*$TAB}"; p="${rest%%$TAB*}"; txt="${rest#*$TAB}"
+      id="$(event_id "$j|$line")"; grep -qxF "$id" "$scratch/ids" && continue; echo "$id" >> "$scratch/ids"; ev="$(printf '%s\n' "$line" | parse_event)"; t="${ev%%$TAB*}"; rest="${ev#*$TAB}"; p="${rest%%$TAB*}"; txt="${rest#*$TAB}"
       if [ "$t" = supersedes ]; then printf '%s\t%s\t%s\n' "$o" "$p" "$txt" >> "$SUP"; continue; fi
       if [ "$t" = ask ] && printf '%s' "$txt" | grep -q "@$ME\b"; then replied "$o" "$jd" || printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$b" "$o" "$j" "$txt" >> "$A"; continue; fi
       printf '%s' "$txt" | grep -q "@$ME\b" && { seen "$id" || printf '%s\t%s\t%s\t%s\t%s %s\n' "$id" "$b" "$o" "$j" "$t" "$txt" >> "$A"; continue; }
@@ -115,6 +117,10 @@ digest)
   COLLAB_INCLUDE_MINE=1; for_each_other_claim _mine; unset COLLAB_INCLUDE_MINE
   _others() { o="$(claim_get "$2" owner)"; st="$(claim_get "$2" status)"; slug="$(branch_slug "$1")"; unc=""; com=""; age=""
     [ -f "$CACHE/wip.tsv" ] && line="$(grep "^$o$TAB$slug$TAB" "$CACHE/wip.tsv" | head -n1)" && [ -n "$line" ] && { age="$(printf '%s' "$line" | cut -f3)"; unc="$(printf '%s' "$line" | cut -f4)"; com="$(printf '%s' "$line" | cut -f5)"; }
+    if [ -z "$age" ]; then
+      observed="$(g log -1 --format=%ct "refs/wip/$o/$slug" 2>/dev/null)" || observed=""
+      [ -z "$observed" ] || age=$(( $(now_epoch) - observed ))
+    fi
     last="$(g log -1 --format=%cr "$3" 2>/dev/null)"; days=$(( ( $(now_epoch) - $(g log -1 --format=%ct "$3" 2>/dev/null || echo 0) ) / 86400 ))
     nxt="$(claim_get "$2" next)"
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "${o:--}" "${st:-active}" "$(claim_get "$2" goal)" "${age:--}" "${unc:--}" "${com:--}" "${last:--}$( [ $days -ge 14 ] && echo ' · 방치?')" "${nxt:--}" >> "$O"
@@ -127,11 +133,13 @@ digest)
     if [ -f "$MINE" ]; then printf '{"goal":"%s","status":"%s","owner":"%s"}' "$(esc "$(claim_get "$MINE" goal)")" "$(esc "$(claim_get "$MINE" status)")" "$(esc "$(claim_get "$MINE" owner)")"; else printf 'null'; fi
     printf ',"asks":['; f=1; while IFS="$TAB" read -r id b o j txt; do [ $f = 1 ] || printf ','; f=0; printf '{"id":"%s","from":"%s","branch":"%s","text":"%s","journal":"%s"}' "$id" "$(esc "$o")" "$(esc "$b")" "$(esc "$txt")" "$(esc "$j")"; done < "$A"
     printf '],"events":['; f=1; while IFS="$TAB" read -r id b o j t p txt; do [ $f = 1 ] || printf ','; f=0; printf '{"type":"%s","path":"%s","text":"%s","from":"%s","branch":"%s"}' "$(esc "$t")" "$(esc "$p")" "$(esc "$txt")" "$(esc "$o")" "$(esc "$b")"; done < "$E"
-    printf '],"others":['; f=1; while IFS="$TAB" read -r b o st goal age unc com last nxt; do [ $f = 1 ] || printf ','; f=0; printf '{"branch":"%s","owner":"%s","status":"%s","goal":"%s","wip_age":%s,"editing":%s,"committed":%s,"last_commit":"%s","next":"%s"}' "$(esc "$b")" "$(esc "$o")" "$(esc "$st")" "$(esc "$goal")" "$( [ "$age" = "-" ] && echo null || echo "$age")" "$( [ "$unc" = "-" ] && echo '[]' || printf '%s\n' $unc | jarr)" "$( [ "$com" = "-" ] && echo '[]' || printf '%s\n' $com | jarr)" "$(esc "$last")" "$(esc "$nxt")"; done < "$O"
-    printf '],"overlaps":['; f=1; while IFS="$TAB" read -r fpath o age kind; do [ $f = 1 ] || printf ','; f=0; printf '{"path":"%s","owner":"%s","wip_age":%s,"kind":"%s"}' "$(esc "$fpath")" "$(esc "$o")" "$age" "$kind"; done < "$V"
-    printf ']}\n'
+    printf '],"others":['; f=1; while IFS="$TAB" read -r b o st goal age unc com last nxt; do [ $f = 1 ] || printf ','; f=0; printf '{"branch":"%s","owner":"%s","status":"%s","goal":"%s","wip_age":%s,"wip_status":"%s","editing":%s,"committed":%s,"last_commit":"%s","next":"%s"}' "$(esc "$b")" "$(esc "$o")" "$(esc "$st")" "$(esc "$goal")" "$( [ "$age" = "-" ] && echo null || echo "$age")" "$(if [ "$age" = - ]; then echo unknown; elif [ "$age" -gt "$WIP_STALE_SEC" ]; then echo stale; else echo fresh; fi)" "$( [ "$unc" = "-" ] && echo '[]' || printf '%s\n' $unc | jarr)" "$( [ "$com" = "-" ] && echo '[]' || printf '%s\n' $com | jarr)" "$(esc "$last")" "$(esc "$nxt")"; done < "$O"
+    printf '],"overlaps":['; f=1; while IFS="$TAB" read -r fpath o age kind; do [ $f = 1 ] || printf ','; f=0; printf '{"path":"%s","owner":"%s","wip_age":%s,"kind":"%s"}' "$(esc "$fpath")" "$(esc "$o")" "$( [ "$age" = - ] && echo null || echo "$age")" "$kind"; done < "$V"
+    printf '],"sharing":{"publish":%s,"fetch":%s,"branch":%s}}\n' "$(share_status publish)" "$(share_status fetch)" "$(share_status branch)"
   else
     echo "# 협업 현황 (자동 주입) · 나: @$ME · 브랜치: ${BR:-?}${fetch_note:+ · $fetch_note}"
+    echo "공유 상태: 스냅샷 $(share_status publish | jq -r .state) · 원격 조회 $(share_status fetch | jq -r .state) · 브랜치 push $(share_status branch | jq -r .state)"
+    [ "$(share_status fetch | jq -r .state)" = ok ] || echo '! 아래 목록은 마지막 관측입니다. 없음은 현재 무충돌을 보장하지 않습니다.'
     sobaya_cmd='sh harness/sobaya-installed.sh'; join_cmd='sh harness/join.sh'
     if [ "$RUNTIME_ROOT" != "$ROOT" ]; then sobaya_cmd='sh .petra/bin/petra sobaya'; join_cmd='sh .petra/bin/petra join'; fi
     collab_hooks_on || echo "! git 훅이 꺼져 있거나 연결이 충돌합니다 → 설치형 연결은 $sobaya_cmd check 로 확인하고, 일반 연결은 $join_cmd 로 준비하세요."
@@ -150,6 +158,8 @@ digest)
       while IFS="$TAB" read -r b st goal; do echo "- $b · $st · $goal"; done < "$MYB"; fi
     echo; echo "## 동료 작업 중"
     if [ -s "$O" ]; then while IFS="$TAB" read -r b o st goal age unc com last nxt; do echo "- $b · @$o · $st · $goal · 마지막 커밋 $last"
+        [ "$age" != "-" ] || echo '  현재 편집 상태 미확인: 스냅샷이 없거나 오래됐습니다. 작업 종료로 간주하지 않습니다.'
+        if [ "$age" != '-' ] && [ "$age" -gt "$WIP_STALE_SEC" ]; then echo "  오래된 스냅샷 ($(fmt_age "$age")): 현재 편집 여부 미확인. 작업 종료가 아닙니다."; fi
         [ "$unc" != "-" ] && echo "  지금 편집 중 ($(fmt_age "$age")): $unc"
         [ "$com" != "-" ] && echo "  브랜치에 커밋됨(미머지): $com"
         [ "$nxt" != "-" ] && echo "  다음에 만질 것: $nxt"; done < "$O"; else echo "- 없음"; fi
@@ -177,12 +187,31 @@ digest)
       echo "  → 같은 부분을 고치는 것 같으면 사용자에게 알린다. 작게 커밋하고 자주 push 한다."
     else echo "- 없음"; fi
   fi
-  rm -f "$A" "$E" "$O" "$V" "$SUP" "$MYB" "$CACHE/_ids"; now_epoch > "$CACHE/pulse.at" ;;
+  exit 0 ;;
+
+share)
+  is_protected_branch "$BR" && exit 0
+  [ -f "$(claim_path_for "$BR")" ] || { echo 'claim 없이 공유하지 않습니다.' >&2; exit 1; }
+  rc=0; wip_push || rc=1; do_fetch "$SHARE_TIMEOUT_SEC" || rc=1
+  wip_table
+  exit "$rc" ;;
+
+checkpoint)
+  is_protected_branch "$BR" && { echo '작업 브랜치에서 checkpoint를 실행하세요.' >&2; exit 1; }
+  [ -f "$(claim_path_for "$BR")" ] || { echo 'claim 먼저 작성하세요.' >&2; exit 1; }
+  sobaya_busy && { echo 'Sobaya 실행 중에는 커밋을 끼워 넣지 않습니다.' >&2; exit 1; }
+  do_fetch "$SHARE_TIMEOUT_SEC" || exit 1
+  node "$RUNTIME_ROOT/harness/checkpoint-petra.mjs" "$ROOT" "$0" "$@" || exit 1
+  if bounded_git "$SHARE_TIMEOUT_SEC" push -u origin HEAD; then share_record branch ok
+  else share_record branch failed '체크포인트 커밋은 로컬에 보존됨'; echo '! 커밋은 보존됐지만 push 실패. git push로 재시도하세요.' >&2; exit 1; fi
+  wip_push || exit 1
+  echo '체크포인트 커밋과 원격 공유 완료. 계약 변경은 새 저널 이벤트도 함께 공유하세요.' ;;
 
 pulse)
   is_protected_branch "$BR" && exit 0
   [ -f "$OVPREV" ] || : > "$OVPREV"
-  wip_push; do_fetch 5 || { now_epoch > "$CACHE/pulse.at"; exit 0; }
+  share_rc=0; wip_push || share_rc=1
+  do_fetch 5 || { now_epoch > "$CACHE/pulse.at"; exit 1; }
   out=""; wip_table; MYF="$(my_files)"
   # 직전 pulse 와 비교한다. 사라졌다 다시 생긴 편집 겹침은 새 알림이다.
   ovnext="$OVPREV.next"; : > "$ovnext"
@@ -236,11 +265,15 @@ $e"; sh "$0" digest >/dev/null 2>&1; fi   # 텍스트 digest 를 한 번 돌려 
 - main 이 갱신됐습니다.${hit:+ 내 파일과 겹침: $hit.} 커밋한 뒤 'git $mode $MAIN' 하세요 (작업 트리가 깨끗하면 다음 pulse 가 자동으로 합니다)."; fi
     fi
   fi
-  now_epoch > "$CACHE/pulse.at"; [ -n "$out" ] && printf '%s\n' "$out" | sed '/^$/d' ;;
+  now_epoch > "$CACHE/pulse.at"; [ -z "$out" ] || printf '%s\n' "$out" | sed '/^$/d'; exit "$share_rc" ;;
 
 wip)
   is_protected_branch "$BR" && exit 0; [ -f "$(claim_path_for "$BR")" ] || exit 0
-  wip_push; g rev-parse -q --verify "@{upstream}" >/dev/null 2>&1 && g push -q origin HEAD >/dev/null 2>&1
+  wip_push
+  if g rev-parse -q --verify "@{upstream}" >/dev/null 2>&1; then
+    if bounded_git "$SHARE_TIMEOUT_SEC" push -q origin HEAD; then share_record branch ok
+    else share_record branch failed '커밋은 로컬에 보존됨. 브랜치 push 재시도 필요'; echo '! 커밋은 성공했지만 브랜치 push 실패. git push 후 공유 상태를 확인하세요.' >&2; fi
+  else share_record branch unknown 'upstream 없음. git push -u origin HEAD 필요'; fi
   do_fetch 5 || exit 0; wip_table; MYF="$(my_files)"
   [ -f "$CACHE/wip.tsv" ] && while IFS="$TAB" read -r o slug age unc com; do for f in $unc $com; do [ "$f" = "-" ] && continue
     printf '%s\n' "$MYF" | grep -qx "$f" && echo "협업: $f 를 @$o($slug) 도 바꾸는 중" >&2; done; done < "$CACHE/wip.tsv"; exit 0 ;;
@@ -278,8 +311,9 @@ run)
 - $h ← $(printf '%s' "$w" | awk -F"$TAB" '{printf "@%s(%s) ", $1, $2}')편집 중"; done
   if [ -n "$busy" ] && [ -z "${COLLAB_RUN_FORCE:-}" ]; then
     printf '중단: 동료가 지금 편집 중인 허브 파일이 있습니다. 워커는 훅을 거치지 않아 같은 파일을 고치면 머지 충돌이 납니다.%s\n상대가 커밋하면 풀립니다. 그래도 돌리려면 COLLAB_RUN_FORCE=1.\n' "$busy" >&2; exit 1; fi
-  before="$(g rev-parse HEAD 2>/dev/null)"; "$@"; rc=$?
-  wip_push >/dev/null 2>&1; wip_table
+  before="$(g rev-parse HEAD 2>/dev/null)"
+  PETRA_WORKER_SHARE_SEC="$WORKER_SHARE_SEC" node "$RUNTIME_ROOT/harness/run-petra.mjs" "$0" -- "$@"; rc=$?
+  wip_push; wip_table
   touched="$( { g diff --name-only "$before" HEAD 2>/dev/null; g status --porcelain 2>/dev/null | awk '{print $NF}'; } | sort -u)"
   hot=""; for f in $touched; do is_hotspot "$f" && hot="$hot $f"; done
   if [ -n "$hot" ]; then echo "협업: 워커가 허브 파일을 건드렸습니다:$hot" >&2
@@ -319,19 +353,20 @@ check)
 "; }
   is_protected_branch "$branch" && { echo "보호 브랜치 — 검사 생략"; exit 0; }
   mb="$(g merge-base "$base" HEAD 2>/dev/null)" || { echo "merge-base 없음: $base"; exit 1; }
-  changed="$(g diff --name-status "$mb" HEAD)"; files="$(printf '%s\n' "$changed" | awk '{print $2}')"
+  changed="$(g diff --name-status --no-renames "$mb" HEAD)"; files="$(printf '%s\n' "$changed" | awk '{print $2}')"
+  for f in $files; do migration_record_invalid "$f" "$mb" HEAD && V "이전 기록의 내용 변경/누락: $f (바이트가 같은 이동만 허용)"; done
   if [ -f "$cp" ]; then for k in branch owner goal status; do [ -n "$(claim_get "$cp" "$k")" ] || V "$cp: '$k:' 비어 있음"; done
     [ "$(branch_slug "$(claim_get "$cp" branch)")" = "$(basename "$(dirname "$cp")")" ] || V "$cp: branch 가 디렉토리명과 다름"
     case "$(claim_get "$cp" status)" in active|paused|done) ;; *) V "$cp: status 는 active|paused|done" ;; esac
   else V "claim 없음: $cp (start-work 스킬)"; fi
-  journals="$(printf '%s\n' "$changed" | awk '$1=="A"{print $2}' | grep "^$JOURNAL_DIR/[^/]*\.md$" | grep -v README || true)"
+  journals="$(printf '%s\n' "$changed" | awk '$1=="A"{print $2}' | grep "^$JOURNAL_DIR/[^/]*\.md$" | grep -v README | while IFS= read -r file; do record_moved "$file" "$mb" HEAD || printf '%s\n' "$file"; done)"
   [ -n "$journals" ] || V "저널 없음. $JOURNAL_DIR/ 에 새 파일 (handoff 스킬)"
   for j in $journals; do for h in "이벤트" "남은 것"; do grep -q "^## $h" "$j" || V "$j: '## $h' 절 없음"; done
     basename "$j" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[^-]+-' || V "$j: 파일명은 YYYY-MM-DD-<owner>-<slug>.md"; done
   printf '%s\n' "$changed" | awk '$1~/^[MD]/{print $2}' | grep -q "^$JOURNAL_DIR/.*\.md$" && V "기존 저널을 수정/삭제함 (append-only)"
   # sobaya 의 브랜치 산출물(spec.md, failed-test.md)이 main 으로 가면 다음 브랜치와 충돌한다
   for f in spec.md failed-test.md; do printf '%s\n' "$files" | grep -qx "$f" && V "$f 가 PR 에 포함됨. handoff 의 'plan 보관' 절차로 collab/journal/plans/ 에 옮기고 루트에서 지울 것"; done
-  others="$(printf '%s\n' "$files" | grep "^$CLAIM_DIR/" | grep -v "^$(claim_dir_for "$branch")/" | grep -v README || true)"; [ -n "$others" ] && V "다른 브랜치의 claim 을 건드림: $(echo "$others" | tr '\n' ' ')"
+  others="$(printf '%s\n' "$files" | grep "^$CLAIM_DIR/" | grep -v "^$(claim_dir_for "$branch")/" | grep -v README | while IFS= read -r file; do record_moved "$file" "$mb" HEAD || printf '%s\n' "$file"; done)"; [ -n "$others" ] && V "다른 브랜치의 claim 을 건드림: $(echo "$others" | tr '\n' ' ')"
   agent=false; g log --format='%(trailers:key=Assisted-by,valueonly)' "$mb..HEAD" 2>/dev/null | grep -q . && agent=true
   # 다른 열린 브랜치와 같은 파일을 바꿨는가 (정보)
   ov=""; _ov() { for f in $(g diff --name-only "$(g merge-base "$base" "$3")" "$3" 2>/dev/null | grep -Ev '^(collab|\.petra/collab)/'); do printf '%s\n' "$files" | grep -qx "$f" && ov="$ov $f(@$(claim_get "$2" owner))"; done; }; for_each_other_claim _ov
@@ -361,7 +396,7 @@ precommit)
   # 허브 파일을 동료가 지금 편집 중이면 경고만 (차단은 sobaya 의 커밋 단계를 깨뜨린다)
   [ -f "$CACHE/wip.tsv" ] && [ $(( $(now_epoch) - $(cat "$CACHE/pulse.at" 2>/dev/null || echo 0) )) -lt 900 ] && g diff --cached --name-only | while IFS= read -r p; do
     is_hotspot "$p" && w="$(editing_now "$p")" && [ -n "$w" ] && echo "주의: 허브 파일 $p 를 $(printf '%s' "$w" | cut -f1 | sed 's/^/@/' | tr '\n' ' ')도 지금 편집 중입니다. 머지 충돌 가능성이 높습니다." >&2; done
-  export COLLAB_SKIP_WIP=1; bad=0
+  export COLLAB_SKIP_WIP=1 COLLAB_CHECK_MIGRATION=1; bad=0
   g diff --cached --name-only --no-renames -z | tr '\0' '\n' | while IFS= read -r p; do [ -n "$p" ] || continue
     check_write "$p" || { printf '✗ %s\n  %s\n' "$p" "$REASON" >&2; echo bad; }; done | grep -q bad && bad=1
   [ $bad -eq 0 ] || { echo "커밋 차단 (협업 하네스). 위 안내대로 고친 뒤 다시 커밋하세요." >&2; exit 1; }; exit 0 ;;

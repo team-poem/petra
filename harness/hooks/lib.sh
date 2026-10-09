@@ -38,6 +38,7 @@ load_config() {
   : "${PROTECTED_BRANCH_ALLOW=collab/ harness/ .claude/ .github/}" "${CLAIM_EXEMPT:=.claude/settings.local.json}"
   : "${HOTSPOTS:=}" "${PULSE_EVERY_EDITS:=15}" "${PULSE_MAX_AGE_SEC:=900}" "${WIP_STALE_SEC:=7200}" "${AUTO_REBASE:=true}" "${JOURNAL_LOOKBACK_DAYS:=14}"
   : "${SYNC_MODE:=auto}" "${SOBAYA_ROOT:=}"
+  : "${SHARE_TIMEOUT_SEC:=10}" "${WORKER_SHARE_SEC:=60}"
   mkdir -p "$CACHE" 2>/dev/null
 }
 load_config
@@ -145,15 +146,68 @@ for_each_other_claim() {
 
 # ---- 작업 트리 스냅샷 (wip) -------------------------------------------------
 # 내 작업 트리(미커밋·미추적 포함, .gitignore 존중)를 커밋 객체로 만들어 refs/wip/<me> 에 올린다. 히스토리를 더럽히지 않는다.
-wip_snapshot() {
-  idx="$CACHE/wip.index"; rm -f "$idx"
+wip_snapshot() (
+  idx="$(mktemp "$CACHE/wip.index.XXXXXX")" || exit 1; rm -f "$idx"
+  trap 'rm -f "$idx" "$idx.lock"' EXIT
+  snapshot_head="$(g rev-parse HEAD)" || exit 1
   GIT_INDEX_FILE="$idx" g read-tree HEAD 2>/dev/null || return 1
-  GIT_INDEX_FILE="$idx" g add -A . >/dev/null 2>&1
+  GIT_INDEX_FILE="$idx" g add -A . >/dev/null 2>&1 || exit 1
   tree="$(GIT_INDEX_FILE="$idx" g write-tree 2>/dev/null)" || return 1
-  g commit-tree "$tree" -p HEAD -m "wip $(me) $(now_epoch)" 2>/dev/null
+  [ "$snapshot_head" = "$(g rev-parse HEAD)" ] || exit 1
+  g commit-tree "$tree" -p "$snapshot_head" -m "wip $(me) $(now_epoch)" 2>/dev/null
+)
+# 상태 파일은 worktree/브랜치별. 성공 시각은 실패로 갱신하지 않는다.
+share_record() (
+  file="$(branch_cache "share.$1")"; old=0
+  [ ! -f "$file" ] || old="$(jq -r '.succeeded_at // 0' "$file" 2>/dev/null)"
+  [ "$2" != ok ] || old="$(now_epoch)"
+  temp="$(mktemp "$CACHE/share.XXXXXX")" || exit 1
+  jq -n --arg state "$2" --arg detail "${3:-}" --argjson at "$(now_epoch)" --argjson success "${old:-0}" \
+    '{state:$state,detail:$detail,attempted_at:$at,succeeded_at:$success}' > "$temp" && mv "$temp" "$file"
+)
+share_status() (
+  file="$(branch_cache "share.$1")"
+  if [ -f "$file" ]; then
+    jq --argjson now "$(now_epoch)" --argjson max "$PULSE_MAX_AGE_SEC" \
+      'if .state == "ok" and ($now - .succeeded_at) > $max then .state="stale" else . end' "$file"
+  else printf '{"state":"unknown","succeeded_at":0,"attempted_at":0,"detail":"아직 확인하지 않음"}\n'; fi
+)
+bounded_git() (
+  limit="$1"; shift
+  GIT_TERMINAL_PROMPT=0 g "$@" </dev/null >/dev/null 2>&1 & child=$!
+  trap 'kill "$child" 2>/dev/null; wait "$child" 2>/dev/null' HUP INT TERM
+  count=0
+  while kill -0 "$child" 2>/dev/null; do
+    if [ "$count" -ge "$limit" ]; then kill "$child" 2>/dev/null; wait "$child" 2>/dev/null; exit 124; fi
+    sleep 1; count=$((count+1))
+  done
+  wait "$child"
+)
+share_fetch() {
+  if bounded_git "${1:-$SHARE_TIMEOUT_SEC}" fetch -q --prune origin '+refs/heads/*:refs/remotes/origin/*' '+refs/wip/*:refs/wip/*'; then
+    share_record fetch ok; return 0
+  fi
+  share_record fetch failed '원격 조회 실패 또는 시간 초과. 동료가 작업하지 않는다는 뜻이 아닙니다.'
+  echo '! 원격 조회 실패: 동료 상태 미확인. 연결 복구 후 digest --fetch를 실행하세요.' >&2; return 1
 }
 wip_ref() { printf 'refs/wip/%s/%s' "$(me)" "$(branch_slug "$(current_branch)")"; }
-wip_push() { sha="$(wip_snapshot)" && [ -n "$sha" ] && g push -q -f origin "$sha:$(wip_ref)" >/dev/null 2>&1; }
+wip_push() (
+  lock="$CACHE/share.lock"
+  if ! mkdir "$lock" 2>/dev/null; then
+    owner="$(cat "$lock/pid" 2>/dev/null)"
+    case "$owner" in ''|*[!0-9]*) echo '! 공유가 이미 실행 중이거나 중단됐습니다: share.lock 확인' >&2; exit 1 ;; esac
+    if kill -0 "$owner" 2>/dev/null; then exit 0; fi
+    rm -f "$lock/pid"; rmdir "$lock" 2>/dev/null || exit 1
+    mkdir "$lock" 2>/dev/null || exit 1
+  fi
+  echo "$$" > "$lock/pid"
+  trap 'rm -f "$lock/pid"; rmdir "$lock" 2>/dev/null' EXIT
+  if sha="$(wip_snapshot)" && [ -n "$sha" ] && bounded_git "$SHARE_TIMEOUT_SEC" push -q -f origin "$sha:$(wip_ref)"; then
+    share_record publish ok; exit 0
+  fi
+  share_record publish failed '작업 스냅샷 전송 실패. 동료에게 최신 편집이 전달되지 않았습니다.'
+  echo '! 작업 스냅샷 전송 실패: 동료는 최신 편집을 모를 수 있습니다. share로 재시도하세요.' >&2; exit 1
+)
 wip_fetch() { g fetch -q --prune origin '+refs/wip/*:refs/wip/*' >/dev/null 2>&1; }
 
 # 내가 이 브랜치에서 바꾼 파일 (커밋 + 작업 트리)
@@ -162,7 +216,8 @@ my_files() { m="$(main_ref)" || m=HEAD; { g diff --name-only "$(g merge-base "$m
 # 동료들이 지금 만지는 파일 → $CACHE/wip.tsv : owner<TAB>branch-slug<TAB>age초<TAB>미커밋파일(공백)<TAB>커밋파일(공백)
 # 미커밋 = 스냅샷 부모(브랜치 HEAD) 이후 바뀐 것 (지금 이 순간 편집 중). 커밋 = main 이후 브랜치에 커밋된 것 (머지 때 만남).
 wip_table() {
-  wt_out="$CACHE/wip.tsv"; : > "$wt_out.tmp"; m="$(main_ref)" || m=HEAD; my="$(me)"; now="$(now_epoch)"
+  wt_out="$CACHE/wip.tsv"; wt_tmp="$(mktemp "$CACHE/wip.table.XXXXXX")" || return 1
+  m="$(main_ref)" || m=HEAD; my="$(me)"; now="$(now_epoch)"
   for ref in $(g for-each-ref --format='%(refname)' refs/wip 2>/dev/null); do
     rest="${ref#refs/wip/}"; o="${rest%%/*}"; slug="${rest#*/}"; [ "$rest" = "$o" ] && slug="-"
     [ "$o" = "$my" ] && continue   # 내 다른 브랜치·워크트리는 동료 겹침이 아니다
@@ -171,8 +226,8 @@ wip_table() {
     parent="$(g rev-parse -q --verify "$ref^" 2>/dev/null || echo "$m")"
     unc="$(g diff --name-only "$parent" "$ref" 2>/dev/null | grep -Ev '^(collab|\.petra/collab)/' | tr '\n' ' ')"
     com="$(g diff --name-only "$(g merge-base "$m" "$parent" 2>/dev/null || echo "$m")" "$parent" 2>/dev/null | grep -Ev '^(collab|\.petra/collab)/' | tr '\n' ' ')"
-    printf '%s\t%s\t%s\t%s\t%s\n' "$o" "$slug" "$age" "${unc:--}" "${com:--}" >> "$wt_out.tmp"
-  done; mv "$wt_out.tmp" "$wt_out"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$o" "$slug" "$age" "${unc:--}" "${com:--}" >> "$wt_tmp"
+  done; mv "$wt_tmp" "$wt_out"
 }
 # 경로를 지금 만지는 동료: "owner<TAB>slug<TAB>age<TAB>kind" 줄. kind = editing(미커밋) | committed(브랜치에 커밋, 미머지)
 touching_now() { [ -f "$CACHE/wip.tsv" ] || return 0; while IFS="$TAB" read -r o slug age unc com; do
@@ -220,6 +275,7 @@ sobaya_lock_live() (
 )
 sobaya_busy() {  # 루프가 잠금을 쥐고 있거나 항목이 진행 중이면 작업 트리를 건드리면 안 된다
   d="$(g rev-parse --absolute-git-dir 2>/dev/null)" || return 1
+  [ ! -e "$d/petra-run.lock" ] || return 0
   for lock in "$d/sobaya/lock.shell" "$d/sobaya/lock" "$d/sobaya-management.lock"; do
     sobaya_lock_live "$lock" && return 0
   done
@@ -228,6 +284,24 @@ sobaya_busy() {  # 루프가 잠금을 쥐고 있거나 항목이 진행 중이�
 sync_mode() { case "$SYNC_MODE" in rebase|merge) printf '%s' "$SYNC_MODE" ;; *) sobaya_approved && printf merge || printf rebase ;; esac; }
 
 # ---- 쓰기 검사: 훅과 CLI 가 같은 판정을 쓴다 ----------------------------------
+# A migration is a byte-identical move, never permission to edit another record.
+record_moved() (
+  case "$1" in .petra/collab/active/*|.petra/collab/journal/*) old="${1#.petra/}"; new="$1" ;;
+    collab/active/*|collab/journal/*) old="$1"; new=".petra/$1" ;; *) exit 1 ;; esac
+  from="${2:-HEAD}"; to="${3:-}"
+  old_blob="$(g rev-parse --verify "$from:$old" 2>/dev/null)" || exit 1
+  new_blob="$(g rev-parse --verify "$to:$new" 2>/dev/null)" || exit 1
+  [ "$old_blob" = "$new_blob" ] || exit 1
+  ! g cat-file -e "$to:$old" 2>/dev/null
+)
+migration_record_invalid() (
+  [ -f "$ROOT/.petra/manifest.json" ] || exit 1
+  case "$1" in .petra/collab/*) old="${1#.petra/}" ;; collab/*) old="$1" ;; *) exit 1 ;; esac
+  case "$old" in "collab/active/$(branch_slug "${GITHUB_HEAD_REF:-$(current_branch)}")/"*) exit 1 ;;
+    collab/active/*|collab/journal/*) ;; *) exit 1 ;; esac
+  g cat-file -e "${2:-HEAD}:$old" 2>/dev/null || exit 1
+  ! record_moved "$1" "${2:-HEAD}" "${3:-}"
+)
 # check_write <리포상대경로> → 0 허용 / 2 차단 (REASON 에 메시지)
 REASON=""
 check_write() {
@@ -237,6 +311,10 @@ check_write() {
     case "$p" in "$CLAIM_DIR"/*) [ "$(basename "$p")" = README.md ] || { REASON="차단: 보호 브랜치에서는 claim 을 편집하지 않습니다. 정리는 scripts/collab.sh prune."; return 2; } ;; esac
     path_matches_any "$p" $PROTECTED_BRANCH_ALLOW && return 0
     REASON="차단: 보호 브랜치($branch)에서는 코드를 수정하지 않습니다. start-work 스킬 로 작업 브랜치와 claim 을 만든 뒤 수정하세요."; return 2
+  fi
+  if [ -n "${COLLAB_CHECK_MIGRATION:-}" ]; then
+    migration_record_invalid "$p" HEAD '' && { REASON='이전 기록은 바이트가 같은 이동만 허용합니다. 저널/동료 claim을 바꾸지 마세요.'; return 2; }
+    record_moved "$p" HEAD '' && return 0
   fi
   case "$p" in
     "$JOURNAL_DIR"/*.md) [ "$(basename "$p")" = README.md ] && return 0
