@@ -197,8 +197,7 @@ wip_push() (
     owner="$(cat "$lock/pid" 2>/dev/null)"
     case "$owner" in ''|*[!0-9]*) echo '! 공유가 이미 실행 중이거나 중단됐습니다: share.lock 확인' >&2; exit 1 ;; esac
     if kill -0 "$owner" 2>/dev/null; then exit 0; fi
-    rm -f "$lock/pid"; rmdir "$lock" 2>/dev/null || exit 1
-    mkdir "$lock" 2>/dev/null || exit 1
+    echo '! 중단된 공유 잠금: share.lock의 PID와 프로세스 종료를 확인한 뒤 정리하세요.' >&2; exit 1
   fi
   echo "$$" > "$lock/pid"
   trap 'rm -f "$lock/pid"; rmdir "$lock" 2>/dev/null' EXIT

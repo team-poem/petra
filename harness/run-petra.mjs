@@ -19,7 +19,13 @@ try {
   console.error(`워커가 실행 중이거나 이전 실행이 중단됐습니다: ${lock}. 소유 PID와 작업 상태를 확인하세요.`);
   process.exit(1);
 }
-process.on('exit', () => { fs.unlinkSync(path.join(lock, 'pid')); fs.rmdirSync(lock); });
+process.on('exit', () => {
+  try {
+    if (fs.readFileSync(path.join(lock, 'pid'), 'utf8').trim() === `${process.pid}`) {
+      fs.unlinkSync(path.join(lock, 'pid')); fs.rmdirSync(lock);
+    }
+  } catch { /* Do not remove a lock replaced by another process. */ }
+});
 const groupSignal = (child, signal) => {
   if (!child?.pid) return;
   try { process.kill(-child.pid, signal); } catch (e) { if (e.code !== 'ESRCH') throw e; }
