@@ -84,6 +84,8 @@ export function planInstall(packageRoot, target, agents = 'both') {
     }
     const managed = packaged.map(({ path: name, sha256, mode }) => ({ path: name, sha256, mode }));
     add('.petra/manifest.json', json({ ...source, managed, shared, installation: { package_id: packageId, agents } }));
+    const ignored = optionalGit(root, 'check-ignore', '--', ...files.map((entry) => entry.path));
+    if (ignored) throw new Error(`설치 파일이 Git에서 제외됩니다. .gitignore를 먼저 검토하세요:\n${ignored}`);
   }
   const material = { target: root, package_id: packageId, state, watched, files };
   return { ...material, info, plan_id: hash(json(material)) };

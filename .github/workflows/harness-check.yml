@@ -80,6 +80,7 @@ jobs:
           path: |
             .petra-lab/ci/runs/test.*/result.json
             .petra-lab/ci/runs/test.*/test.log
+            .petra-lab/ci/runs/test.*/install.log
             .petra-lab/ci/runs/test.*/fixture/*.out
             .petra-lab/ci/runs/test.*/fixture/target.json
           include-hidden-files: true

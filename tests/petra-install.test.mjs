@@ -289,3 +289,9 @@ test('실제 설치본의 두 clone에서 claim과 함수 변경 저널이 상�
   assert.match(digest, /solp 쇼핑몰 기능/); assert.match(digest, /currency 추가/); assert.match(digest, /KRW/);
   assert.ok(verifyInstalled(solp)); assert.ok(verifyInstalled(amazon));
 });
+test('설치 파일이 gitignore에 가려져 동료에게 빠지는 경우를 사전에 거절한다', () => {
+  const root = app(); write(root, '.gitignore', '.petra/\n'); commit(root);
+  const before = tree(root);
+  assert.throws(() => planInstall(pkg, root), /Git에서 제외/);
+  assert.deepEqual(tree(root), before);
+});

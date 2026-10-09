@@ -49,8 +49,7 @@ make_current() {
     rc=$?; [ "$rc" = 1 ] || exit "$rc"; previous=''
   fi
   run=$(mktemp -d "$LAB/runs/manual.XXXXXX")
-  sh "$SOURCE/bin/petra" pack "$run/package"
-  petra_fixture_seed "$SOURCE" "$run"
+  petra_fixture_seed "$SOURCE" "$run" --install
   for owner in solp amazon; do sh "$run/$owner/.petra/bin/petra" join "$owner"; done
   jq '{source_commit,source_dirty,version}' "$run/package/.petra/manifest.json" > "$run/environment.json"
   ln -sfn "runs/${run##*/}" "$LAB/current"
@@ -81,7 +80,13 @@ case "$command" in
     run=$(mktemp -d "$LAB/runs/test.XXXXXX")
     echo "자동 검사 실행 중: $run/test.log"
     rc=0
-    sh "$SOURCE/tests/petra.sh" --keep-at "$run/fixture" > "$run/test.log" 2>&1 || rc=$?
+    node --test "$SOURCE/tests/petra-install.test.mjs" > "$run/install.log" 2>&1 || rc=$?
+    cat "$run/install.log"
+    if [ "$rc" = 0 ]; then
+      sh "$SOURCE/tests/petra.sh" --keep-at "$run/fixture" > "$run/test.log" 2>&1 || rc=$?
+    else
+      printf '설치 검사 실패: install.log 확인\n' > "$run/test.log"
+    fi
     cat "$run/test.log"
     status=passed; [ "$rc" = 0 ] || status=failed
     jq -n --arg status "$status" --arg run "$run" --arg source_commit "$(git -C "$SOURCE" rev-parse HEAD)" --argjson rc "$rc" \

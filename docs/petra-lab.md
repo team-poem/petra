@@ -19,7 +19,8 @@ sh scripts/petra-lab.sh up
 .petra-lab/dev/current/amazon
 ```
 
-각 폴더에는 작은 쇼핑몰, 현재 PETRA 코드, 해당 핸들과 Git 훅이 준비된다.
+쇼핑몰 원본에 실제 PETRA 설치기의 dry-run/apply를 거친 뒤 두 clone을 만든다.
+각 폴더에는 작은 쇼핑몰, 현재 PETRA 코드, 해당 핸들과 Git 훅이 준비된다. 설치 절차는 [최초 설치 안내](petra-install.md)를 따른다.
 둘의 origin은 `.petra-lab/dev/current/origin.git`이다. 실험 중의 commit/push는 이 로컬 원격으로 가며 GitHub에는 올라가지 않는다.
 
 solp 쪽에는 "상품 가격 표시 기능을 시작해줘", amazon 쪽에는 "장바구니 합계를 시작해줘"라고 요청한다.
@@ -37,7 +38,7 @@ solp 쪽에는 "상품 가격 표시 기능을 시작해줘", amazon 쪽에는 "
 | `sh scripts/petra-lab.sh test` | 별도 실행 공간에서 자동 협업 검사. 수동 작업 공간은 그대로 유지 |
 
 PETRA 코드를 고친 뒤 자동 검사는 `test`, 새로운 수동 테스트는 세션을 닫고 `reset`으로 준비한다.
-각 실행의 로그와 `result.json`, 실제 clone은 `.petra-lab/dev/runs/`에 남는다.
+각 실행의 `install.log`, `test.log`, `result.json`, 실제 clone은 `.petra-lab/dev/runs/`에 남는다.
 오래된 실행 폴더는 필요 없어졌을 때 삭제할 수 있고, 명령은 자동으로 과거 수동 작업을 지우지 않는다.
 여러 환경이 필요하면 `sh scripts/petra-lab.sh --name experiment up`처럼 이름을 지정한다.
 
@@ -47,6 +48,7 @@ GitHub Actions의 `harness-check`가 PR마다 아래를 실행한다. main에 �
 
 1. Linux와 macOS에서 이 리포의 쇼핑몰 원본과 현재 PETRA 코드로 실험실을 준비한다.
 2. 환경 재사용, 초기화 시 작업 보존, 두 clone의 Git 훅과 테스트 명령을 확인한다.
+   설치기 검사는 기존 앱·설정 보존, 계획 변경 거절, 재설치, 실패 복구·강제 종료도 확인한다.
 3. 작업 선언, 저널 질문·답변, 함수 변경 전달, 허브 파일 차단, PR 검사, 구형 기록 호환을 자동으로 재현한다.
 4. 결과와 진단 로그를 `petra-lab-ubuntu-latest`, `petra-lab-macos-latest` 아티팩트로 7일 보관한다.
 
@@ -60,7 +62,7 @@ CI는 항상 깨끗한 실행 공간에서 검사한다. 사람이 매번 프로
 실제 Codex·Claude 세션은 위 두 폴더에서 진행하며 각 계정의 접근 권한이 필요하다. 기존 실행 결과와 제한은 [첫 배치 기록](petra-first-slice-testing.md)에 있다.
 
 이 실험실은 PETRA 개발용이다. 소비 프로젝트에 설치되는 훅·스킬 수는 늘어나지 않는다.
-앞으로 설치·업데이트·Sobaya 연결이 구현되면 같은 쇼핑몰과 실행 명령에 해당 시나리오를 추가한다.
+최초 설치는 이 환경에서 검사한다. 앞으로 이전·업데이트·Sobaya 연결도 같은 쇼핑몰과 실행 명령에 시나리오를 추가한다.
 
 ## 관리 위치
 
@@ -68,6 +70,7 @@ CI는 항상 깨끗한 실행 공간에서 검사한다. 사람이 매번 프로
 tests/fixtures/shop/       버전 관리되는 작은 쇼핑몰 원본
 tests/support/            로컬·CI 공통 Git 환경 준비
 tests/petra.sh            두 clone 협업 시나리오 26개
+tests/petra-install.test.mjs 최초 설치·보존·실패 처리
 tests/petra-lab.sh        재사용·초기화·자동 검사 보존 11개 + 협업 시나리오
 scripts/petra-lab.sh      up / status / reset / test
 .petra-lab/               생성한 실제 작업 공간과 결과 (커밋 제외)
