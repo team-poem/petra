@@ -12,6 +12,8 @@ jobs:
       - run: sh tests/hooks.sh
       - run: sh tests/loop.sh
       - run: sh tests/sobaya.sh
+      - name: PETRA 첫 소비 배치 · 두 clone 협업 검증
+        run: sh tests/petra.sh
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - uses: actions/checkout@v4
