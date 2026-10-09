@@ -87,6 +87,8 @@ jobs:
           SOBAYA_TEST_ASSETS: ${{ runner.temp }}/petra-sobaya-assets
         # 세 자산의 고정 해시를 검사한다. 모델만 고정 worker로 대체한다.
         run: node --test tests/petra-sobaya.test.mjs
+      - name: 작업 중 공유·이전·업데이트·복구 검증
+        run: node --test tests/petra-sharing.test.mjs tests/petra-lifecycle.test.mjs tests/petra-release.test.mjs
       - name: 실행 결과·진단 로그 보관
         if: always()
         uses: actions/upload-artifact@v4

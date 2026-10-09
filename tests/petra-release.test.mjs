@@ -1,0 +1,49 @@
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { buildRelease } from '../harness/release-petra.mjs';
+import { hash } from '../harness/petra-files.mjs';
+import { sourceStatus } from '../harness/source-petra.mjs';
+
+const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'petra-release-tests-')), root = path.join(tmp, 'source');
+fs.mkdirSync(root);
+for (const name of ['harness', 'bin', 'scripts/collab.sh', '.githooks', 'collab/templates']) fs.cpSync(path.join(source, name), path.join(root, name), { recursive: true });
+const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
+for (const key of Object.keys(env)) if (/^GIT_(DIR|WORK_TREE|COMMON_DIR|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|PREFIX|CONFIG|CONFIG_COUNT|CONFIG_PARAMETERS|CONFIG_KEY_\d+|CONFIG_VALUE_\d+)$/.test(key) || /^(COLLAB_|CLAUDE_PROJECT_DIR$|PETRA_PROJECT_ROOT$|RUNTIME_ROOT$|GITHUB_HEAD_REF$)/.test(key)) { delete env[key]; delete process.env[key]; }
+delete env.NODE_TEST_CONTEXT;
+Object.assign(process.env, env);
+const git = (...args) => execFileSync('git', ['-C', root, ...args], { env, encoding: 'utf8', stdio: 'pipe' }).trim();
+git('init', '-q', '-b', 'main'); git('config', 'user.name', 'fixture'); git('config', 'user.email', 'fixture@example.invalid'); git('add', '-A'); git('commit', '-qm', 'source');
+after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+test('배포물은 깨끗한 소스 커밋·VERSION·관리 파일 및 해시가 일치한다', () => {
+  const result = buildRelease(root, path.join(tmp, 'release'));
+  assert.equal(result.source_commit, git('rev-parse', 'HEAD'));
+  const manifest = JSON.parse(fs.readFileSync(path.join(result.output, 'manifest.json')));
+  assert.equal(manifest.source_dirty, false); assert.equal(manifest.version, result.version);
+  for (const [name, sum] of Object.entries(result.checksums)) assert.equal(hash(fs.readFileSync(path.join(result.output, name))), sum);
+  const entries = execFileSync('tar', ['-tzf', path.join(result.output, `petra-${result.version}.tar.gz`)], { encoding: 'utf8' });
+  assert.match(entries, /\.petra\/runtime\/scripts\/collab.sh/); assert.doesNotMatch(entries, /collab\/journal\/20\d\d/);
+  const extracted = path.join(tmp, 'extracted'); fs.mkdirSync(extracted);
+  execFileSync('tar', ['-xzf', path.join(result.output, `petra-${result.version}-source.tar.gz`), '-C', extracted]);
+  assert.deepEqual(sourceStatus(extracted), { source_commit: result.source_commit, source_dirty: false });
+  const app = path.join(tmp, 'app'); fs.mkdirSync(app);
+  execFileSync('git', ['-C', app, 'init', '-q', '-b', 'feat/install'], { env });
+  execFileSync('git', ['-C', app, '-c', 'user.name=fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-qm', 'base'], { env });
+  const plan = JSON.parse(execFileSync('sh', [path.join(extracted, 'bin/petra'), 'install', '--target', app, '--dry-run'], { env, encoding: 'utf8' }));
+  execFileSync('sh', [path.join(extracted, 'bin/petra'), 'install', '--target', app, '--apply', '--expect-plan', plan.plan_id], { env });
+  assert.equal(JSON.parse(fs.readFileSync(path.join(app, '.petra/manifest.json'))).source_commit, result.source_commit);
+  fs.appendFileSync(path.join(extracted, 'scripts/collab.sh'), '\n# modified\n');
+  assert.equal(sourceStatus(extracted).source_dirty, true);
+  assert.throws(() => buildRelease(root, result.output), /EEXIST/);
+});
+test('커밋 전 변경이나 제작 리포 내부 출력은 정식 배포하지 않는다', () => {
+  assert.throws(() => buildRelease(root, path.join(root, 'dist')), /리포 밖/);
+  fs.appendFileSync(path.join(root, 'harness/VERSION'), '\n');
+  assert.throws(() => buildRelease(root, path.join(tmp, 'dirty')), /커밋 전 변경/);
+  assert.equal(fs.existsSync(path.join(tmp, 'dirty')), false);
+});

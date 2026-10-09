@@ -34,8 +34,9 @@ Share a goal → Read team context → Develop and share changes → Journal and
 ```
 
 At the start, an agent reads teammates' goals and relevant changes.
-During work, Git snapshots reveal overlapping edits. At handoff, a journal records changes and remaining work for the next agent.
+During work, Git snapshots reveal overlapping edits before a normal commit. Agents commit verified changes as checkpoints and publish journal events when shared contracts change, not only at handoff.
 Hooks and a shared CLI connect this workflow, while Git hooks enforce collaboration rules at commit and push time.
+Long-running workers keep sharing snapshots; failed delivery and stale observations are reported explicitly.
 
 Only published and fetched information is visible. PETRA is not a real-time lock or a guarantee of conflict-free merges.
 
@@ -62,6 +63,8 @@ The detailed guides below are currently in Korean; both project introductions co
 |---|---|
 | A day of collaboration, with examples | [Human guide](docs/guide.md) |
 | Installation, joining, and preserving settings | [Installation](docs/petra-install.md) |
+| Uncommitted sharing and checkpoints | [Sharing during work](docs/petra-sharing.md) |
+| Migration, updates, rollback, and recovery | [Lifecycle](docs/petra-lifecycle.md) |
 | Sobaya connection, development, and version sync | [PETRA + Sobaya](docs/petra-sobaya.md) |
 | Repeatable tests inside this repository | [Internal lab](docs/petra-lab.md) |
 | Commands, data formats, and hook behavior | [Architecture and protocol reference](docs/reference.md) |
@@ -69,8 +72,8 @@ The detailed guides below are currently in Korean; both project introductions co
 
 ## Current Status
 
-PETRA is **in development**, with first installation into the new `.petra` layout, the collaboration loop, and installed Sobaya integration implemented.
+PETRA is **preparing its 0.1.0 release**. The `.petra` layout, collaboration loop, and installed Sobaya integration now include migration, updates, recovery, onboarding, and consumer PR/CI integration.
 Linux/macOS CI verifies temporary consumer projects. This does not establish real-model judgment quality or prevention of every conflict.
 
-Next steps include migrating older template projects, PETRA updates and rollback, and onboarding and consumer CI integration for the new layout.
+See the [0.1.0 verification record](docs/petra-010-testing.md) for tested behavior and remaining tool-specific limitations.
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before modifying this repository.

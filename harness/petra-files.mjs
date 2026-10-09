@@ -74,6 +74,18 @@ export function assertJoinable(root, { allowInstalledSobaya = false } = {}) {
 }
 export const begin = '<!-- petra:begin -->';
 export const end = '<!-- petra:end -->';
+export function managedForAgent(entry, agents, root) {
+  if (entry.path === '.claude/settings.json') return false;
+  if (entry.path.startsWith('.claude/skills/')) {
+    if (agents === 'codex') return false;
+    const alias = path.join(root, '.claude/skills');
+    if (exists(alias) && fs.lstatSync(alias).isSymbolicLink()) {
+      if (fs.realpathSync(alias) !== fs.realpathSync(path.join(root, '.agents/skills'))) throw new Error('Claude skills 심링크가 프로젝트의 .agents/skills를 가리키지 않습니다');
+      return false;
+    }
+  }
+  return true;
+}
 export function documentBlock(text) {
   if (text.split(begin).length !== 2 || text.split(end).length !== 2) throw new Error('PETRA 문서 구역이 없거나 중복됐습니다');
   const start = text.indexOf(begin), finish = text.indexOf(end);
@@ -89,7 +101,7 @@ export function verifyInstalled(root, { duringInstall = false } = {}) {
   if (manifest.schema !== 1 || manifest.records !== '.petra/collab' || !Array.isArray(manifest.managed) || !manifest.managed.length) throw new Error('지원하지 않는 PETRA manifest');
   const seen = new Set();
   for (const entry of manifest.managed) {
-    if (!/^(\.petra\/|\.githooks\/|\.claude\/)/.test(entry.path) || !/^[a-f0-9]{64}$/.test(entry.sha256) || seen.has(entry.path)) throw new Error('잘못된 관리 파일 목록');
+    if (!/^(\.petra\/|\.githooks\/|\.claude\/|\.agents\/skills\/petra\/|\.github\/workflows\/petra-check.yml$|\.github\/PULL_REQUEST_TEMPLATE\/petra.md$)/.test(entry.path) || !/^[a-f0-9]{64}$/.test(entry.sha256) || seen.has(entry.path)) throw new Error('잘못된 관리 파일 목록');
     seen.add(entry.path);
     const actual = snapshot(root, entry.path);
     if (!actual || actual.sha256 !== entry.sha256 || (entry.mode !== undefined && actual.mode !== entry.mode)) throw new Error(`PETRA 관리 파일 변경: ${entry.path}`);
@@ -120,6 +132,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const [, , command, target] = process.argv;
     const root = fs.realpathSync(target);
     if (command === 'verify') verifyInstalled(root);
+    else if (command === 'verify-pack') verifyInstalled(root, { duringInstall: true });
     else if (command === 'join-check') assertJoinable(root, { allowInstalledSobaya: true });
     else throw new Error('알 수 없는 파일 검사 명령');
     console.log('PETRA 관리 파일과 공유 연결 검증 통과 (모델 동작·앱 테스트는 별도)');

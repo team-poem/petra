@@ -23,7 +23,7 @@
 `pack`은 staging 생성용이며, 앱에 최초 설치할 때는 `sh bin/petra install --target <Git 루트> --dry-run`을 사용한다.
 계획 확인 후 `--apply --expect-plan <plan_id>`로 적용한다. 앱 파일과 사용자 설정을 보존하고 충돌 시 중단한다.
 자세한 전제와 범위는 [최초 설치 안내](petra-install.md)를 따른다. 설치 후 개발 하네스는 [새 PETRA의 Sobaya 연결](petra-sobaya.md)로 준비한다.
-구형 이전·PETRA 업데이트·롤백과 소비자 CI 자동 설치는 후속 범위다. 최초 구현의 검증 기록은 [첫 소비 배치 검증](petra-first-slice-testing.md)에 있다.
+구형 이전·PETRA 업데이트·롤백은 [수명주기 안내](petra-lifecycle.md), 중간 공유는 [작업 중 공유](petra-sharing.md)를 따른다. 소비자 PR/CI도 새 설치에 포함된다. 아래 구형 제작 경로와 새 소비 경로를 섞지 않는다. 최초 구현 기록은 [첫 소비 배치 검증](petra-first-slice-testing.md)에 있다.
 새 소비 경로 `.petra/collab/`과 기존 `collab/`은 브랜치별 manifest를 기준으로 읽으며,
 원격 브랜치의 설정 코드를 실행하지 않는다. 제작 리포 자신은 지금의 경로를 유지한다.
 

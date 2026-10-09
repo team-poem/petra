@@ -3,9 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { hash, json, equal, exists, git, optionalGit, safePath, snapshot, repoInfo, assertJoinable, begin, end, verifyInstalled } from './petra-files.mjs';
+import { hash, json, equal, exists, git, optionalGit, safePath, snapshot, repoInfo, assertJoinable, begin, end, verifyInstalled, managedForAgent } from './petra-files.mjs';
 
-const agentBlock = `${begin}\n## PETRA 협업\n작업 전에 [.petra/AGENTS.md](.petra/AGENTS.md)를 읽고 \`sh .petra/bin/petra digest --fetch\`를 실행한다.\n자동 훅이 없는 환경도 같은 CLI를 사용한다. 수정 후 \`pulse\`, 마무리에 새 저널과 \`check\`를 실행한다.\n처음 합류하면 \`sh .petra/bin/petra join <핸들>\`. 앱 규칙과 실제 Test 명령은 이 문서의 기존 내용을 따른다.\n${end}`;
+export const agentBlock = `${begin}\n## PETRA 협업\n작업 전에 [.petra/AGENTS.md](.petra/AGENTS.md)를 읽고 \`sh .petra/bin/petra digest --fetch\`를 실행한다.\n자동 훅이 없는 환경도 같은 CLI를 사용한다. 수정 후 \`pulse\`, 마무리에 새 저널과 \`check\`를 실행한다.\n처음 합류하면 \`sh .petra/bin/petra onboard\`. 협업 절차는 petra 스킬을 따른다. 구형 collab/·harness/ 경로 안내 대신 .petra/ 계약을 사용한다.\n앱 규칙과 실제 Test 명령은 이 문서의 기존 내용을 따른다.\n${end}`;
 
 function preflight(info) {
   const { root, meta, common } = info;
@@ -41,7 +41,7 @@ export function planInstall(packageRoot, target, agents = 'both') {
     const after = { bytes: Buffer.from(bytes).toString('base64'), sha256: hash(bytes), mode };
     files.push({ path: name, before, after });
   };
-  const packaged = source.managed.filter((entry) => entry.path !== '.claude/settings.json').map((entry) => {
+  const packaged = source.managed.filter((entry) => managedForAgent(entry, agents, root)).map((entry) => {
     const data = snapshot(packageRoot, entry.path);
     return { path: entry.path, ...data };
   });
@@ -91,10 +91,10 @@ export function planInstall(packageRoot, target, agents = 'both') {
   return { ...material, info, plan_id: hash(json(material)) };
 }
 
-export function applyInstall(plan, expected, { beforeWrite = () => {}, afterWrite = () => {} } = {}) {
+export function applyInstall(plan, expected, { beforeWrite = () => {}, afterWrite = () => {}, preflightCheck = preflight, verify = (root) => verifyInstalled(root, { duringInstall: true }) } = {}) {
   if (!expected || expected !== plan.plan_id) throw new Error('계획이 다릅니다. dry-run 후 --expect-plan <plan_id>로 적용하세요');
   if (!plan.files.length) return;
-  if (!equal(preflight(plan.info), plan.state)) throw new Error('계획 이후 Git 상태나 설정 변경');
+  if (!equal(preflightCheck(plan.info), plan.state)) throw new Error('계획 이후 Git 상태나 설정 변경');
   const { root, meta } = plan.info, lock = path.join(meta, 'petra-install.lock');
   fs.mkdirSync(lock, { mode: 0o700 });
   const written = [], createdDirs = [];
@@ -137,7 +137,7 @@ export function applyInstall(plan, expected, { beforeWrite = () => {}, afterWrit
       replace(entry, entry.after);
       afterWrite(entry);
     }
-    verifyInstalled(root, { duringInstall: true });
+    verify(root);
     fs.rmSync(lock, { recursive: true });
   } catch (error) {
     const unresolved = [];

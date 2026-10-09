@@ -2,7 +2,7 @@
 
 앱 코드와 README는 프로젝트 루트에 그대로 남는다. PETRA는 `.petra/` 안에 놓고,
 루트 AGENTS와 선택한 에이전트 설정에 작은 연결만 추가한다. 이 문서는 **PETRA가 아직 없는 앱에 최초 설치**하는 절차다.
-기존 템플릿 정리, 구형 기록 이전과 PETRA 업데이트/롤백은 아직 지원하지 않는다.
+기존 템플릿 정리, 구형 기록 이전과 PETRA 업데이트/롤백은 [수명주기 안내](petra-lifecycle.md)를 따른다.
 새 PETRA 설치를 마친 앱에는 [설치형 Sobaya를 연결](petra-sobaya.md)할 수 있다.
 이미 Sobaya를 사용 중인 앱에 PETRA를 덮어 설치하는 자동 이전과는 다른 절차다.
 
@@ -43,9 +43,10 @@ Sobaya 연결 후에는 설치기를 재실행하지 않는다. 협업 합류는
 | Codex 설정 | 수정하지 않음. 공통 AGENTS와 CLI로 연결 |
 | `.petra/config.sh`, claim·저널 | 최초 골격만 제공. 재설치 때 사용자 변경을 덮지 않음 |
 | Git 설정·HEAD·인덱스·원격 | install은 변경하지 않음. join에서 해당 clone/worktree의 핸들과 훅 활성화 |
-| 기존 CI·PR 양식·보호 규칙 | 변경하지 않음. 소비자 CI 자동 설치는 후속 범위 |
+| 기존 CI·PR 양식·보호 규칙 | 기존 파일은 보존. 별도 `petra-check.yml`, 선택용 PR 양식 `PULL_REQUEST_TEMPLATE/petra.md` 추가. 보호 규칙은 자동 변경하지 않음 |
+| 에이전트 스킬 | 짧은 `petra` 스킬을 `.agents/skills/petra`와 선택한 Claude 경로에 설치. 기존 동명 파일은 덮지 않음 |
 
-기본 `--agents both`는 AGENTS 연결과 Claude 훅을 준비한다. `--agents codex`는 AGENTS만,
+기본 `--agents both`는 AGENTS·스킬 연결과 Claude 훅을 준비한다. `--agents codex`는 AGENTS와 Codex 스킬만,
 `--agents claude`도 공통 AGENTS를 유지하면서 Claude 훅을 준비한다. dry-run/apply에 같은 옵션을 사용한다.
 이름만 같은 Codex hooks.json을 만들어 자동 훅이 지원된다고 가정하지 않는다.
 Claude의 실제 모델 접근과 도구 버전별 동작도 설치 성공과 별도로 확인한다.
@@ -70,7 +71,12 @@ linked worktree는 `extensions.worktreeConfig=true`가 준비돼 있어야 한�
 강제 종료나 동시 편집으로 백업이 남으면 verify/join과 다음 설치가 멈춘다.
 에이전트는 백업의 `target`, `files`의 before/after, `written`과 실제 파일을 비교해 복구안을 먼저 설명해야 한다.
 `before.bytes`는 원본의 base64이며 `mode`는 원래 권한이다. 현재 내용이 after와 다르면 사용자의 추가 변경부터 보존한다.
-복구와 상태 확인 전에는 잠금만 삭제하거나 전체 reset/삭제를 하지 않는다. 자동 복구 명령은 이번 범위가 아니다.
+복구와 상태 확인 전에는 잠금만 삭제하거나 전체 reset/삭제를 하지 않는다. `recover --dry-run`과 `--apply`는 [복구 안내](petra-lifecycle.md#강제-종료-뒤-복구)를 따른다.
+
+## 합류와 PR
+
+앱에서 `sh .petra/bin/petra onboard`로 안내와 준비 상태를 확인한다. 핸들을 정해 `join`하고 `digest --fetch --session`으로 첫 작업을 시작한다.
+소비자 CI는 패키지·claim·저널을 검사하며 앱 테스트는 기존 CI가 담당한다. 저장소 관리자가 GitHub에서 main의 PR 필수, 멤버 1명 승인, 필수 검사 `PETRA check`, squash merge를 설정한다. 양식이나 로컬 Git 훅만으로 서버 보호가 생기지는 않는다.
 
 ## 이 리포에서 검증
 
