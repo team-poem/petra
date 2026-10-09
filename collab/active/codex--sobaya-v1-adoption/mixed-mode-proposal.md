@@ -1,5 +1,7 @@
 # 혼합 연결 차단과 팀 버전 변경 후 sync 안내 — 승인 전 초안
 
+이 문서는 초안·RED 이력이다. 사용자는 2026-10-09 아래 정확한 입력을 승인했다. 현재 승인은 [승인 기록](../../journal/2026-10-09-Kangmin_Kim-sobaya-mixed-mode-approved.md)을 따른다. 아래 승인 전 표현은 당시 상태를 보존한다.
+
 [PR #5의 추가 리뷰](https://github.com/team-poem/poem-collaboration-harness-template/pull/5#issuecomment-6074989301)에 대응한다. 제품 코드는 아직 바꾸지 않았다. 이번 사용자의 진행 요청으로 회귀 초안과 실제 실패 근거를 준비했으며, 아래 정확한 새 입력의 사람 승인은 아직 받지 않았다.
 
 ## 검토할 원문

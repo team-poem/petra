@@ -4,11 +4,12 @@ owner: Kangmin_Kim
 started: 2026-10-06
 status: active
 goal: bump : add Sobaya v1.0.0-rc.1 dependency support
-next: PR #5 추가 리뷰의 혼합 연결 차단·pin 변경 후 sync 안내 회귀 초안과 RED 근거 검토. 정확한 새 테스트 승인 뒤 구현
+next: 승인된 혼합 연결 사전 차단·sync 안내 구현, 전체 191개·macOS/Linux·독립 완료 검토
 base: main
 ---
 
 ## 메모
+- 2026-10-09 사용자가 혼합 연결·sync 안내 11개 원문 SHA-256 `cafb8d85a57cbb761e886f4f70a4e76d8381a5c245e0adf86236ce9ba0d303ce`를 명시적으로 승인했다. 원문 그대로 추가하고 제품 구현·검증을 진행한다.
 - 2026-10-09 사용자가 추가 리뷰 대응 진행을 요청했다. 기존 180개 승인 입력은 보존하며 collab/active의 새 회귀 초안·설명·저널만 먼저 작성한다. 이후 구현 예정 범위는 harness/attach-sobaya.sh, scripts/collab.sh 및 관련 테스트·문서·CI다.
 - 구형 회귀 수정 커밋 f17eeb5에서 macOS·Linux 전체 180개와 협업 검사, 독립 완료 검토를 확인했다. 인수인계 커밋의 실행 코드·승인 입력·CI는 동일하며 최종 PR 검사 결과는 본문 링크를 따른다. done은 구현·검증 제출이며 병합·출시를 뜻하지 않는다.
 - 2026-10-08 사용자가 SHA-256 `d736cb05b581bf44f48918599053dffb6039cc8c57743d9255041d362e7d1b12`의 7개 입력과 정상 sync의 종료 코드 0 기준을 명시적으로 승인했다. 원문 그대로 새 테스트에 추가하며 기존 승인 입력은 보존한다.
