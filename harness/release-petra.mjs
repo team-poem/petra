@@ -4,6 +4,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { git, hash, json, verifyInstalled } from './petra-files.mjs';
+import { archiveProvenance } from './source-petra.mjs';
 
 export function buildRelease(root, output) {
   root = fs.realpathSync(root); output = path.resolve(output);
@@ -22,7 +23,11 @@ export function buildRelease(root, output) {
     if (manifest.version !== version || manifest.source_commit !== commit || manifest.source_dirty) throw new Error('배포 manifest의 출처가 HEAD와 다릅니다');
     const runtime = `petra-${version}.tar.gz`, source = `petra-${version}-source.tar.gz`;
     execFileSync('tar', ['-czf', path.join(output, runtime), '-C', pkg, '.']);
-    execFileSync('git', ['-C', root, 'archive', '--format=tar.gz', `--output=${path.join(output, source)}`, 'HEAD']);
+    const sourceTar = path.join(temp, 'source.tar');
+    fs.writeFileSync(path.join(temp, '.petra-source.json'), json(archiveProvenance(root)));
+    execFileSync('git', ['-C', root, 'archive', '--format=tar', `--output=${sourceTar}`, 'HEAD']);
+    execFileSync('tar', ['-rf', sourceTar, '-C', temp, '.petra-source.json']);
+    fs.writeFileSync(path.join(output, source), execFileSync('gzip', ['-n', '-c', sourceTar], { maxBuffer: 64 * 1024 * 1024 }));
     fs.writeFileSync(path.join(output, 'manifest.json'), json(manifest));
     const checksums = Object.fromEntries([runtime, source, 'manifest.json'].map((file) => [file, hash(fs.readFileSync(path.join(output, file)))]));
     fs.writeFileSync(path.join(output, 'SHA256SUMS'), Object.entries(checksums).map(([file, sum]) => `${sum}  ${file}\n`).join(''));

@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildRelease } from '../harness/release-petra.mjs';
 import { hash } from '../harness/petra-files.mjs';
+import { sourceStatus } from '../harness/source-petra.mjs';
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'petra-release-tests-')), root = path.join(tmp, 'source');
@@ -25,6 +26,17 @@ test('배포물은 깨끗한 소스 커밋·VERSION·관리 파일 및 해시가
   for (const [name, sum] of Object.entries(result.checksums)) assert.equal(hash(fs.readFileSync(path.join(result.output, name))), sum);
   const entries = execFileSync('tar', ['-tzf', path.join(result.output, `petra-${result.version}.tar.gz`)], { encoding: 'utf8' });
   assert.match(entries, /\.petra\/runtime\/scripts\/collab.sh/); assert.doesNotMatch(entries, /collab\/journal\/20\d\d/);
+  const extracted = path.join(tmp, 'extracted'); fs.mkdirSync(extracted);
+  execFileSync('tar', ['-xzf', path.join(result.output, `petra-${result.version}-source.tar.gz`), '-C', extracted]);
+  assert.deepEqual(sourceStatus(extracted), { source_commit: result.source_commit, source_dirty: false });
+  const app = path.join(tmp, 'app'); fs.mkdirSync(app);
+  execFileSync('git', ['-C', app, 'init', '-q', '-b', 'feat/install'], { env });
+  execFileSync('git', ['-C', app, '-c', 'user.name=fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-qm', 'base'], { env });
+  const plan = JSON.parse(execFileSync('sh', [path.join(extracted, 'bin/petra'), 'install', '--target', app, '--dry-run'], { env, encoding: 'utf8' }));
+  execFileSync('sh', [path.join(extracted, 'bin/petra'), 'install', '--target', app, '--apply', '--expect-plan', plan.plan_id], { env });
+  assert.equal(JSON.parse(fs.readFileSync(path.join(app, '.petra/manifest.json'))).source_commit, result.source_commit);
+  fs.appendFileSync(path.join(extracted, 'scripts/collab.sh'), '\n# modified\n');
+  assert.equal(sourceStatus(extracted).source_dirty, true);
   assert.throws(() => buildRelease(root, result.output), /EEXIST/);
 });
 test('커밋 전 변경이나 제작 리포 내부 출력은 정식 배포하지 않는다', () => {

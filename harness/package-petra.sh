@@ -33,7 +33,8 @@ find "$out/.petra" "$out/.githooks" "$out/.claude" "$out/.agents" "$out/.github"
   hash=$(shasum -a 256 "$file" | awk '{print $1}')
   jq -nc --arg path "${file#"$out"/}" --arg sha256 "$hash" '{path:$path,sha256:$sha256}'
 done > "$list"
-source=$(git -C "$ROOT" rev-parse HEAD)
-dirty=false; [ -z "$(git -C "$ROOT" status --porcelain)" ] || dirty=true
+provenance=$(node "$ROOT/harness/source-petra.mjs" "$ROOT")
+source=$(printf '%s' "$provenance" | jq -r .source_commit)
+dirty=$(printf '%s' "$provenance" | jq -r .source_dirty)
 jq -n --arg version "$(cat "$ROOT/harness/VERSION")" --arg source "$source" --argjson dirty "$dirty" --slurpfile managed "$list" '{schema:1,version:$version,source_commit:$source,source_dirty:$dirty,records:".petra/collab",managed:$managed}' > "$out/.petra/manifest.json"
 printf '개발용 PETRA 패키지: %s\n' "$out"
