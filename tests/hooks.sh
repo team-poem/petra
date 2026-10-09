@@ -195,6 +195,9 @@ git config --unset core.hooksPath; git switch -q feat/login
 
 echo "# check"
 echo z > src/auth/b.ts; printf '# j\n\n## 이벤트\n- changed src/auth/a.ts x\n\n## 남은 것\n- y\n' > collab/journal/2026-01-02-me-feat--login.md
+# CI 검사는 자기 브랜치의 b.ts와 실제 양쪽에서 바뀐 package.json을 구분한다.
+# ref_merged의 전역 files 덮어쓰기로 생긴 가짜 겹침에 의존하지 않는다.
+echo '{"login":true}' > package.json
 git add -A && git commit -qm work
 check "check 통과"                         "sh scripts/collab.sh check --base main >'$W/chk' 2>&1"
 [ $fail -gt 0 ] && sed 's/^/     /' "$W/chk" | head -12

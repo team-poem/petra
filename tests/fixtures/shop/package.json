@@ -1,0 +1,6 @@
+{
+  "name": "petra-test-shop",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test" }
+}

@@ -2,7 +2,15 @@
 # SessionStart: 리포 상태를 보고 온보딩 또는 협업 현황(digest)을 주입한다. 실패해도 세션은 계속된다.
 . "$(dirname "$0")/lib.sh"
 rm -f "$CACHE/edits" "$CACHE/warned" "$(branch_cache warned)" "$CACHE/allow"
-st="$(sh "$ROOT/scripts/collab.sh" state 2>/dev/null)"; mode="$(printf '%s\n' "$st" | sed -n 's/^state=//p')"
+st="$(sh "$RUNTIME_ROOT/scripts/collab.sh" state 2>/dev/null)"; mode="$(printf '%s\n' "$st" | sed -n 's/^state=//p')"
+if [ -f "$ROOT/.petra/AGENTS.md" ]; then
+  echo '# PETRA 에이전트 계약'; cat "$ROOT/.petra/AGENTS.md"
+  if [ "$mode" != ready ]; then
+    echo '먼저 사용자 핸들을 확인하고 sh .petra/bin/petra join <핸들>로 합류하세요. 앱의 AGENTS.md와 Test 계약은 변경하지 않습니다.'
+    exit 0
+  fi
+  exec sh "$RUNTIME_ROOT/scripts/collab.sh" digest --fetch
+fi
 v() { printf '%s\n' "$st" | sed -n "s/^$1=//p"; }
 case "$mode" in
   setup|join)
@@ -21,4 +29,4 @@ case "$mode" in
     echo "끝나면 'sh scripts/collab.sh digest --fetch' 를 보여주고, 외울 규칙 셋(시작에 claim, 끝에 저널, 남한테 할 말은 ask @핸들)을 말한 뒤 start-work 를 제안합니다."
     exit 0 ;;
 esac
-exec sh "$ROOT/scripts/collab.sh" digest --fetch
+exec sh "$RUNTIME_ROOT/scripts/collab.sh" digest --fetch

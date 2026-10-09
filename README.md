@@ -3,6 +3,23 @@
 여러 사람이 각자 AI 에이전트를 데리고 **한 리포에서 동시에** 일하기 위한 하네스 템플릿.
 이 문서는 **에이전트가 이 리포를 이해하기 위한 것**이다. 사람이 그림으로 이해하려면 [docs/guide.md](docs/guide.md).
 
+## PETRA 첫 구현
+
+이 리포 안에서 바로 테스트하려면 `sh scripts/petra-lab.sh up`으로 solp·amazon 작업 공간을 준비한다.
+`sh scripts/petra-lab.sh test`는 같은 쇼핑몰 원본으로 자동 협업 검사를 실행한다.
+원본은 `tests/fixtures/shop/`, 생성물은 커밋되지 않는 `.petra-lab/`에 있으며 PR의 Linux/macOS CI도 같은 절차를 사용한다.
+재사용·초기화와 실제 에이전트 실행은 [내부 테스트 환경](docs/petra-lab.md)을 따른다.
+
+제작 리포의 구조와 소비 프로젝트의 구조를 분리하는 개발용 패키지를 구현 중이다.
+`sh bin/petra pack <존재하지 않는 staging 경로>`는 실행 코드·빈 기록 골격·Git 훅만 묶는다.
+소비 프로젝트에서는 `sh .petra/bin/petra join <핸들>`로 합류하고 같은 협업 CLI를 사용한다.
+앱의 루트 README·AGENTS·테스트는 패키지에 넣지 않는다.
+
+이 명령은 **기존 프로젝트에 적용하는 설치기가 아니다**. staging을 실제 앱에 합치는 절차, 이전·업데이트·롤백,
+Sobaya 새 연결은 후속 구현이다. 현재 범위와 재현 방법은 [첫 소비 배치 검증](docs/petra-first-slice-testing.md)을 따른다.
+새 소비 경로 `.petra/collab/`과 기존 `collab/`은 브랜치별 manifest를 기준으로 읽으며,
+원격 브랜치의 설정 코드를 실행하지 않는다. 제작 리포 자신은 지금의 경로를 유지한다.
+
 ## 읽는 순서
 
 1. `AGENTS.md` — 계약. 무엇이 강제되고, 언제 멈추고, 이벤트를 어떻게 쓰는가.

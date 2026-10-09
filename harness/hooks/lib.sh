@@ -3,24 +3,42 @@
 # 원칙: 판단이 안 서면 통과(fail-open). 막을 때만 확실히 막는다. 모든 판정은 여기 한 곳에 있다.
 
 _norm_dir() { (cd "$1" 2>/dev/null && pwd -P); }
+# 새 파일의 부모 폴더가 아직 없어도 가장 가까운 기존 부모부터 정규화한다.
+prospective_dir() (
+  [ -d "$1" ] && { _norm_dir "$1"; exit; }
+  [ "$1" != / ] || exit 1
+  parent=$(prospective_dir "$(dirname "$1")") || exit 1
+  case "$(basename "$1")" in .) printf '%s' "$parent" ;; ..) dirname "$parent" ;; *) printf '%s/%s' "${parent%/}" "$(basename "$1")" ;; esac
+)
 # 리포 루트: 대상 파일에서 위로 올라가 collab/ 와 .git 을 가진 가장 가까운 디렉토리. 없으면 CLAUDE_PROJECT_DIR.
 find_root_from() {
   d="$1"; while [ "$d" != "/" ] && [ -n "$d" ]; do
-    [ -d "$d/collab" ] && [ -e "$d/.git" ] && { printf '%s' "$d"; return 0; }
+    { [ -d "$d/collab" ] || [ -f "$d/.petra/manifest.json" ]; } && [ -e "$d/.git" ] && { printf '%s' "$d"; return 0; }
     d="$(dirname "$d")"; done; return 1
 }
 ROOT="${CLAUDE_PROJECT_DIR:-}"
 # 환경변수가 없으면 현재 위치에서 위로 올라가 하네스를 가진 리포를 찾는다. 그래도 없으면 git 루트 → pwd.
 [ -n "$ROOT" ] || ROOT="$(find_root_from "$(pwd -P)" 2>/dev/null)" || ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || ROOT="$(pwd)"
 ROOT="$(_norm_dir "$ROOT" || printf '%s' "$ROOT")"
+RUNTIME_ROOT="${RUNTIME_ROOT:-$ROOT}"
 load_config() {
   # shellcheck disable=SC1091
-  [ -f "$ROOT/harness/config.sh" ] && . "$ROOT/harness/config.sh"
+  if [ -f "$ROOT/.petra/manifest.json" ]; then
+    records="$(jq -er '.schema == 1 and .records == ".petra/collab"' "$ROOT/.petra/manifest.json" 2>/dev/null)" || { echo 'PETRA manifest 오류: schema=1, records=.petra/collab 필요' >&2; exit 1; }
+    RUNTIME_ROOT="$ROOT/.petra/runtime"
+    PROTECTED_BRANCH_ALLOW=""
+    [ -f "$ROOT/.petra/config.sh" ] && . "$ROOT/.petra/config.sh"
+    CLAIM_DIR=".petra/collab/active"; JOURNAL_DIR=".petra/collab/journal"
+    CACHE="$(git -C "$ROOT" rev-parse --absolute-git-dir)/petra"
+  else
+    [ -f "$ROOT/harness/config.sh" ] && . "$ROOT/harness/config.sh"
+    CACHE="$ROOT/.claude/cache"
+  fi
   : "${PROTECTED_BRANCHES:=main master develop}" "${CLAIM_DIR:=collab/active}" "${JOURNAL_DIR:=collab/journal}"
-  : "${PROTECTED_BRANCH_ALLOW:=collab/ harness/ .claude/ .github/}" "${CLAIM_EXEMPT:=.claude/settings.local.json}"
+  : "${PROTECTED_BRANCH_ALLOW=collab/ harness/ .claude/ .github/}" "${CLAIM_EXEMPT:=.claude/settings.local.json}"
   : "${HOTSPOTS:=}" "${PULSE_EVERY_EDITS:=15}" "${PULSE_MAX_AGE_SEC:=900}" "${WIP_STALE_SEC:=7200}" "${AUTO_REBASE:=true}" "${JOURNAL_LOOKBACK_DAYS:=14}"
   : "${SYNC_MODE:=auto}" "${SOBAYA_ROOT:=}"
-  CACHE="$ROOT/.claude/cache"; mkdir -p "$CACHE" 2>/dev/null
+  mkdir -p "$CACHE" 2>/dev/null
 }
 load_config
 TAB="$(printf '\t')"
@@ -45,7 +63,7 @@ hook_flag() { hook_read_input; _json_get ".$1"; }
 hook_reroot() {
   hook_read_input; HOOK_CWD="$(_json_get .cwd)"; p="$(_json_get .tool_input.file_path)"; [ -n "$p" ] || p="$(_json_get .tool_input.notebook_path)"
   case "$p" in /*) d="$(_norm_dir "$(dirname "$p")" || dirname "$p")" ;; *) d="$HOOK_CWD" ;; esac
-  [ -n "$d" ] && r="$(find_root_from "$d")" && [ "$r" != "$ROOT" ] && { ROOT="$r"; load_config; }; return 0
+  [ -n "$d" ] && r="$(find_root_from "$d")" && [ "$r" != "$ROOT" ] && { ROOT="$r"; RUNTIME_ROOT="$r"; load_config; }; return 0
 }
 hook_file_path() {  # 리포 상대경로. 리포 밖이면 return 1
   hook_read_input; p="$(_json_get .tool_input.file_path)"; [ -n "$p" ] || p="$(_json_get .tool_input.notebook_path)"; [ -n "$p" ] || return 1
@@ -54,7 +72,7 @@ hook_file_path() {  # 리포 상대경로. 리포 밖이면 return 1
 rel_path() {  # 절대/상대 → 리포 상대 (심링크 정규화). 상대경로는 훅의 cwd(HOOK_CWD) 기준. 리포 밖이면 1
   p="$1"
   case "$p" in /*) ;; *) base="${HOOK_CWD:-}"; [ -n "$base" ] || base="$PWD"; p="$base/${p#./}" ;; esac
-  d="$(_norm_dir "$(dirname "$p")")" || d="$(dirname "$p")"; p="$d/$(basename "$p")"
+  d="$(prospective_dir "$(dirname "$p")")" || return 1; p="$d/$(basename "$p")"
   case "$p" in "$ROOT"/*) p="${p#"$ROOT"/}" ;; *) return 1 ;; esac
   printf '%s' "$p"
 }
@@ -66,16 +84,21 @@ current_branch() { g symbolic-ref --short -q HEAD 2>/dev/null || g rev-parse --a
 is_protected_branch() { for pb in $PROTECTED_BRANCHES; do [ "$1" = "$pb" ] && return 0; done; return 1; }
 main_ref() { for pb in $PROTECTED_BRANCHES; do g show-ref --verify --quiet "refs/remotes/origin/$pb" && { printf 'origin/%s' "$pb"; return; }; done
   for pb in $PROTECTED_BRANCHES; do g show-ref --verify --quiet "refs/heads/$pb" && { printf '%s' "$pb"; return; }; done; return 1; }
-ref_merged() {  # 조상이거나(merge), 브랜치가 바꾼 파일이 전부 main 과 같으면(squash/rebase 머지) 머지된 것
+ref_merged() (  # 콜백 호출자의 files/base 변수를 덮어쓰지 않는다
   m="$(main_ref)" || return 1
   g merge-base --is-ancestor "$1" "$m" 2>/dev/null && return 0
   mb="$(g merge-base "$m" "$1" 2>/dev/null)" || return 1
-  files="$(g diff --name-only "$mb" "$1" -- . ':!collab' 2>/dev/null)"; [ -n "$files" ] || return 1
+  files="$(g diff --name-only "$mb" "$1" -- . ':!collab' ':!.petra/collab' 2>/dev/null)"; [ -n "$files" ] || return 1
   printf '%s\n' "$files" | tr '\n' '\0' | xargs -0 git -C "$ROOT" diff --quiet "$m" "$1" -- 2>/dev/null
-}
+)
 branch_slug() { printf '%s' "$1" | sed 's#/#--#g'; }
 claim_dir_for() { printf '%s/%s' "$CLAIM_DIR" "$(branch_slug "$1")"; }
 claim_path_for() { printf '%s/claim.md' "$(claim_dir_for "$1")"; }
+# 원격 설정은 실행하지 않는다. manifest가 없는 브랜치는 기존 collab/ 프로토콜이다.
+records_for_ref() {
+  rf_json="$(g show "$1:.petra/manifest.json" 2>/dev/null)" || { printf 'collab'; return 0; }
+  printf '%s' "$rf_json" | jq -er 'select(.schema == 1) | .records | select(. == "collab" or . == ".petra/collab")' 2>/dev/null
+}
 tree_clean() { [ -z "$(g status --porcelain 2>/dev/null)" ]; }
 # 통합 작업(머지·체리픽·되돌리기) 중인가 — 그때 들어오는 파일은 "내가 쓴 것" 이 아니다
 integrating() { d="$(g rev-parse --absolute-git-dir 2>/dev/null)" || return 1
@@ -96,7 +119,7 @@ branch_merged_reason() {
 # ---- 경로 매칭 (접두어가 / 로 끝나면 디렉토리, 아니면 그 파일 또는 그 아래) --------
 path_matches_any() { p="$1"; shift; for prefix in "$@"; do [ -z "$prefix" ] && continue
     case "$prefix" in */) case "$p" in "$prefix"*) return 0 ;; esac ;; *) [ "$p" = "$prefix" ] && return 0; case "$p" in "$prefix"/*) return 0 ;; esac ;; esac; done; return 1; }
-in_collab_meta() { case "$1" in collab/*|.claude/*|harness/*) return 0 ;; esac; return 1; }
+in_collab_meta() { case "$1" in collab/*|.petra/collab/*|.claude/*|harness/*) return 0 ;; esac; return 1; }
 is_hotspot() { path_matches_any "$1" $HOTSPOTS; }
 
 # ---- claim / 마크다운 ------------------------------------------------------
@@ -111,7 +134,8 @@ for_each_other_claim() {
     b="${ref#origin/}"; [ "$b" = "$me_b" ] && continue; is_protected_branch "$b" && continue
     case "$seen" in *" $b "*) continue ;; esac; ref_merged "$ref" && continue
     fe_tmp="$(mktemp)"
-    if g show "$ref:$(claim_path_for "$b")" > "$fe_tmp" 2>/dev/null && [ -s "$fe_tmp" ]; then
+    rd="$(records_for_ref "$ref")" || { echo "주의: $ref 의 PETRA manifest를 읽을 수 없습니다" >&2; rm -f "$fe_tmp"; continue; }
+    if g show "$ref:$rd/active/$(branch_slug "$b")/claim.md" > "$fe_tmp" 2>/dev/null && [ -s "$fe_tmp" ]; then
       o="$(claim_get "$fe_tmp" owner)"
       if [ "$o" != "$my_h" ] || [ -n "${COLLAB_INCLUDE_MINE:-}" ]; then seen="$seen$b "; "$1" "$b" "$fe_tmp" "$ref" "$o"; fi
     fi
@@ -133,7 +157,7 @@ wip_push() { sha="$(wip_snapshot)" && [ -n "$sha" ] && g push -q -f origin "$sha
 wip_fetch() { g fetch -q --prune origin '+refs/wip/*:refs/wip/*' >/dev/null 2>&1; }
 
 # 내가 이 브랜치에서 바꾼 파일 (커밋 + 작업 트리)
-my_files() { m="$(main_ref)" || m=HEAD; { g diff --name-only "$(g merge-base "$m" HEAD 2>/dev/null || echo HEAD)" HEAD 2>/dev/null; g status --porcelain 2>/dev/null | awk '{print $NF}'; } | grep -v '^collab/' | sort -u; }
+my_files() { m="$(main_ref)" || m=HEAD; { g diff --name-only "$(g merge-base "$m" HEAD 2>/dev/null || echo HEAD)" HEAD 2>/dev/null; g status --porcelain --untracked-files=all 2>/dev/null | awk '{print $NF}'; } | grep -Ev '^(collab|\.petra/collab)/' | sort -u; }
 
 # 동료들이 지금 만지는 파일 → $CACHE/wip.tsv : owner<TAB>branch-slug<TAB>age초<TAB>미커밋파일(공백)<TAB>커밋파일(공백)
 # 미커밋 = 스냅샷 부모(브랜치 HEAD) 이후 바뀐 것 (지금 이 순간 편집 중). 커밋 = main 이후 브랜치에 커밋된 것 (머지 때 만남).
@@ -145,8 +169,8 @@ wip_table() {
     t="$(g log -1 --format=%ct "$ref" 2>/dev/null)" || continue; age=$((now - ${t:-0}))
     [ "$age" -gt "$WIP_STALE_SEC" ] && continue
     parent="$(g rev-parse -q --verify "$ref^" 2>/dev/null || echo "$m")"
-    unc="$(g diff --name-only "$parent" "$ref" 2>/dev/null | grep -v '^collab/' | tr '\n' ' ')"
-    com="$(g diff --name-only "$(g merge-base "$m" "$parent" 2>/dev/null || echo "$m")" "$parent" 2>/dev/null | grep -v '^collab/' | tr '\n' ' ')"
+    unc="$(g diff --name-only "$parent" "$ref" 2>/dev/null | grep -Ev '^(collab|\.petra/collab)/' | tr '\n' ' ')"
+    com="$(g diff --name-only "$(g merge-base "$m" "$parent" 2>/dev/null || echo "$m")" "$parent" 2>/dev/null | grep -Ev '^(collab|\.petra/collab)/' | tr '\n' ' ')"
     printf '%s\t%s\t%s\t%s\t%s\n' "$o" "$slug" "$age" "${unc:--}" "${com:--}" >> "$wt_out.tmp"
   done; mv "$wt_out.tmp" "$wt_out"
 }
@@ -166,11 +190,11 @@ sobaya_root() {  # 설정값 → 두 단계 위(sobaya/apps/<이 리포>) 순으
 }
 sobaya_lock() { [ -f "$ROOT/harness/sobaya.lock" ] && sed -n 's/^sha=//p' "$ROOT/harness/sobaya.lock"; }
 sobaya_connection_status() (
-  . "$ROOT/harness/sobaya/installed-lib.sh"
+  . "$RUNTIME_ROOT/harness/sobaya/installed-lib.sh"
   si_local_status "$ROOT"
 )
 collab_hooks_on() (
-  . "$ROOT/harness/sobaya/installed-lib.sh"
+  . "$RUNTIME_ROOT/harness/sobaya/installed-lib.sh"
   meta=$(g rev-parse --absolute-git-dir)/sobaya || exit 1
   if si_exists "$meta/connection.json" || si_exists "$meta/original-hooks.json" || si_exists "$meta/hooks"; then
     status=$(si_local_status "$ROOT" 2>/dev/null) && printf '%s' "$status" | jq -e '.connected==true' >/dev/null
