@@ -3,6 +3,9 @@ set -eu
 root=$1
 manifest="$root/.petra/manifest.json"
 [ -f "$manifest" ] && [ ! -L "$manifest" ] || { echo 'PETRA manifest 없음 또는 심링크' >&2; exit 1; }
+if jq -e '.installation' "$manifest" >/dev/null; then
+  exec node "$(dirname "$0")/petra-files.mjs" verify "$root"
+fi
 jq -e '.schema == 1 and .records == ".petra/collab" and (.managed | type == "array" and length > 0) and all(.managed[]; (.path | test("^(\\.petra/|\\.githooks/|\\.claude/)")) and (.path | contains("..") | not) and (.sha256 | test("^[a-f0-9]{64}$")))' "$manifest" >/dev/null
 list=$(mktemp); trap 'rm -f "$list"' EXIT HUP INT TERM
 jq -r '.managed[] | [.path,.sha256] | @tsv' "$manifest" > "$list"

@@ -12,6 +12,7 @@ cp "$ROOT/scripts/collab.sh" "$out/.petra/runtime/scripts/collab.sh"
 for file in lib.sh guard.sh session-start.sh post-edit.sh stop.sh; do cp "$ROOT/harness/hooks/$file" "$out/.petra/runtime/harness/hooks/$file"; done
 cp "$ROOT/harness/sobaya/installed-lib.sh" "$out/.petra/runtime/harness/sobaya/installed-lib.sh"
 cp "$ROOT/harness/verify-petra.sh" "$out/.petra/runtime/harness/verify-petra.sh"
+cp "$ROOT/harness/petra-files.mjs" "$out/.petra/runtime/harness/petra-files.mjs"
 cp "$ROOT/collab/templates/claim.md" "$out/.petra/templates/claim.md"
 cp "$ROOT/harness/templates/petra/journal.md" "$out/.petra/templates/journal.md"
 for file in pre-commit pre-push post-commit pre-merge-commit; do cp "$ROOT/.githooks/$file" "$out/.githooks/$file"; chmod +x "$out/.githooks/$file"; done
