@@ -41,6 +41,7 @@ sh bin/petra migrate --target /absolute/path/to/app \
 ```
 
 `--legacy-source`는 해당 앱에 사용한, 변경 없는 템플릿 checkout이다. 단순히 가장 최신 checkout을 지정하지 않는다.
+기본은 두 에이전트 연결을 함께 이전한다. `--agents codex`를 선택해도 기존 Claude의 구형 하네스 훅이 있으면 중단한다. `--agents both`로 함께 옮기거나 구형 훅을 먼저 검토해 제거해야 삭제된 실행 파일을 참조하지 않는다.
 `collab/active`, `collab/journal`은 내용을 바꾸지 않고 `.petra/collab/`로 이동한다. Git 훅과 PR 검사도 이 이동은 허용하지만 저널·동료 claim을 함께 고치면 거절한다.
 구형 `harness/config.sh`는 바이트 그대로 `.petra/config.sh`로 옮긴다. **기존 main 예외 목록·HOTSPOTS가 앱에 맞는지는 적용 전에 검토한다.**
 

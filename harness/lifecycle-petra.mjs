@@ -106,6 +106,12 @@ export function planLifecycle(packageRoot, target, { operation = 'update', legac
     if (!legacySource || !exists(path.join(root, 'collab')) || exists(path.join(root, '.petra'))) throw new Error('migrate는 .petra 없는 구형 프로젝트와 --legacy-source <사용한 템플릿 checkout>이 필요합니다');
     legacySource = fs.realpathSync(legacySource);
     if (git(legacySource, 'status', '--porcelain', '--untracked-files=all')) throw new Error('legacy-source는 변경 없는 검토한 checkout이어야 합니다');
+    const claude = read('.claude/settings.json');
+    if (agents === 'codex' && claude) {
+      const hooks = JSON.parse(Buffer.from(claude.bytes, 'base64')).hooks || {};
+      const entries = Object.values(hooks).flatMap((items) => Array.isArray(items) ? items : []);
+      if (entries.some((entry) => entry.hooks?.some((hook) => typeof hook.command === 'string' && /\bharness\//.test(hook.command)))) throw new Error('구형 Claude 훅이 남아 있습니다. --agents both로 함께 이전하거나 구형 훅을 먼저 검토해 제거하세요.');
+    }
     // Only remove runtime files proven byte-for-byte against the supplied baseline.
     const paths = ['harness', 'scripts/collab.sh', '.githooks', '.codex/hooks.json', '.agents/skills/start-work', '.agents/skills/handoff', '.agents/skills/onboard'];
     const candidates = git(legacySource, 'ls-files', '--', ...paths).split('\n').filter(Boolean);

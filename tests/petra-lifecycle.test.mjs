@@ -83,6 +83,7 @@ test('구형 이전은 기록을 바이트 그대로 이동하고 알 수 없는
   write(root, 'collab/journal/2026-10-10-amazon-old.md', '## 이벤트\n- changed lib/a.ts contract\n\n## 남은 것\n- none\n');
   write(root, 'harness/user-custom.sh', 'keep me'); commit(root); git(root, 'branch', 'main');
   const record = snapshot(root, 'collab/journal/2026-10-10-amazon-old.md'), config = snapshot(root, 'harness/config.sh');
+  assert.throws(() => planLifecycle(next, root, { operation: 'migrate', legacySource: baseline, agents: 'codex' }), /Claude/);
   const plan = planLifecycle(next, root, { operation: 'migrate', legacySource: baseline }); applyLifecycle(plan, plan.plan_id);
   assert.deepEqual(snapshot(root, '.petra/collab/journal/2026-10-10-amazon-old.md'), record);
   assert.equal(fs.existsSync(path.join(root, 'collab/journal/2026-10-10-amazon-old.md')), false);
