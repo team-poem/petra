@@ -46,18 +46,31 @@ export function repoInfo(target) {
   const common = fs.realpathSync(path.resolve(root, git(root, 'rev-parse', '--git-common-dir')));
   return { root, meta, common };
 }
-export function assertJoinable(root) {
+export function assertJoinable(root, { allowInstalledSobaya = false } = {}) {
   const { meta, common } = repoInfo(root);
   if (exists(path.join(meta, 'petra-install.lock'))) throw new Error('설치 중 또는 중단된 설치가 있습니다: Git 메타데이터의 petra-install.lock 확인');
   const old = optionalGit(root, 'config', '--get', 'core.hooksPath');
-  if (old && old !== '.githooks') throw new Error(`기존 hooksPath는 자동 연결하지 않습니다: ${old}`);
+  let connected = false;
+  if (allowInstalledSobaya && exists(path.join(meta, 'sobaya'))) {
+    const saved = snapshot(meta, 'sobaya/connection.json');
+    if (!saved) throw new Error('Sobaya 상태는 있지만 connection.json이 없습니다. 자동 초기화하지 않습니다');
+    const connection = JSON.parse(Buffer.from(saved.bytes, 'base64'));
+    if (typeof connection?.store !== 'string' || !path.isAbsolute(connection.store)) throw new Error('Sobaya 개인 저장소 경로가 잘못됐습니다');
+    const adapter = safePath(root, '.petra/runtime/harness/sobaya-installed.sh');
+    const status = JSON.parse(execFileSync('sh', [adapter, 'check', '--install-root', connection.store], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+    if (status.connected !== true) throw new Error('Sobaya 연결을 확인하지 못했습니다');
+    connected = true;
+  }
+  if (!connected && old && old !== '.githooks') throw new Error(`기존 hooksPath는 자동 연결하지 않습니다: ${old}`);
   for (const entry of exists(path.join(common, 'hooks')) ? fs.readdirSync(path.join(common, 'hooks'), { withFileTypes: true }) : []) {
     if (entry.name.endsWith('.sample')) continue;
     const file = path.join(common, 'hooks', entry.name);
     if (fs.lstatSync(file).isSymbolicLink() || (fs.statSync(file).mode & 0o111)) throw new Error(`기존 Git 훅은 수동 연결이 필요합니다: ${file}`);
   }
   if (meta !== common && optionalGit(root, 'config', '--bool', 'extensions.worktreeConfig') !== 'true') throw new Error('linked worktree의 join은 extensions.worktreeConfig=true 준비 후 실행하세요');
-  if (exists(path.join(meta, 'sobaya')) || exists(path.join(common, 'sobaya'))) throw new Error('기존 Sobaya 연결은 별도 이전 검증이 필요합니다');
+  // 설치 사전 검사는 엄격하게 유지한다. join만 검증된 현재 worktree 연결을 보존한다.
+  if (!allowInstalledSobaya && (exists(path.join(meta, 'sobaya')) || exists(path.join(common, 'sobaya')))) throw new Error('기존 Sobaya 연결은 별도 이전 검증이 필요합니다');
+  return { connected };
 }
 export const begin = '<!-- petra:begin -->';
 export const end = '<!-- petra:end -->';
@@ -107,7 +120,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const [, , command, target] = process.argv;
     const root = fs.realpathSync(target);
     if (command === 'verify') verifyInstalled(root);
-    else if (command === 'join-check') assertJoinable(root);
+    else if (command === 'join-check') assertJoinable(root, { allowInstalledSobaya: true });
     else throw new Error('알 수 없는 파일 검사 명령');
     console.log('PETRA 관리 파일과 공유 연결 검증 통과 (모델 동작·앱 테스트는 별도)');
   } catch (e) { console.error(e.message); process.exitCode = 1; }

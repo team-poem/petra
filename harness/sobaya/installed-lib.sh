@@ -89,7 +89,11 @@ si_local_status() (
   store=$(jq -ers 'select(length==1) | .[0] | select(type=="object") | .store | select(type=="string" and startswith("/"))' "$meta/connection.json") || {
     si_error 'connection store metadata missing or invalid'; exit 1;
   }
-  sh "$1/harness/sobaya-installed.sh" check --install-root "$store"
+  adapter=$1/harness/sobaya-installed.sh
+  if [ -f "$1/.petra/manifest.json" ] && jq -e '.schema==1 and .records==".petra/collab"' "$1/.petra/manifest.json" >/dev/null 2>&1; then
+    adapter=$1/.petra/runtime/harness/sobaya-installed.sh
+  fi
+  sh "$adapter" check --install-root "$store"
 )
 si_setup_collab_hooks() (
   meta=$(git -C "$1" rev-parse --absolute-git-dir)/sobaya || exit 1
