@@ -9,4 +9,6 @@
 ## 검증과 인수인계
 - 최종 macOS Bash 3.2/shlock 전체 191개 통과. 로그는 `/private/tmp/poem-mixed-final-macos.mybhIE`, 정확한 코드·테스트 해시와 한계는 `collab/active/codex--sobaya-v1-adoption/mixed-mode-implementation.md`에 기록했다.
 - 독립 검토에서 환경변수로 검사·실행 대상이 달라지는 경로를 재현해 보완했다. 최종 소스·문서·CI에서 남은 차단 사항 없음. 승인 원문 3개 해시와 기존 세 테스트는 보존했다.
+
+## 남은 것
 - Linux CI 실행 ID·결과와 커밋 결합 완료 리뷰는 PR #5 본문·검사에서 확인한다. 외부 동료 재검토·병합 판단은 남아 있으며 병합이나 출시는 수행하지 않았다.
