@@ -9,4 +9,5 @@
 5. 마무리에는 `.petra/collab/journal/YYYY-MM-DD-<owner>-<slug>.md`를 새로 쓴다. `## 이벤트`에 `- changed <경로> <변경> → <상대가 할 일>`을 기록한다. 질문은 `ask @핸들`, 답은 `reply @핸들`. `## 남은 것`에는 이어받을 내용을 쓴다. 기존 저널은 수정하지 않는다.
 6. claim 상태를 갱신하고 실제 앱 테스트, `sh .petra/bin/petra check`, `sh .petra/bin/petra pr-body`를 실행한다. 작은 의미 단위로 커밋·push하고 PR로 squash merge한다. main 직접 push, 남의 claim 수정, force push는 하지 않는다.
 
-이 개발용 첫 배치는 기존 프로젝트 설치·이전·업데이트와 Sobaya 신규 연결을 제공하지 않는다. 현재 연결·승인·spec·failed-test 파일을 변경하거나 복사하지 않는다.
+최초 설치는 제작 리포의 `install --dry-run`과 `--apply --expect-plan`으로 준비한다. Git, jq, Node.js 22 이상이 필요하다. 설치·검증은 앱 테스트나 모델 동작 검증을 대신하지 않는다.
+구형 하네스 이전·업데이트와 Sobaya 신규 연결은 후속 범위다. 현재 연결·승인·spec·failed-test 파일을 변경하거나 복사하지 않는다.
