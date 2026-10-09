@@ -1,0 +1,43 @@
+name: PETRA release
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  checks: read
+concurrency:
+  group: petra-release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require successful tests on this main commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?per_page=100" > "$RUNNER_TEMP/checks.json"
+          jq -e 'all(["훅·루프 검증", "PETRA 내부 실험실 (ubuntu-latest)", "PETRA 내부 실험실 (macos-latest)"][]; . as $name | ([$checks[0].check_runs[] | select(.name == $name and .head_sha == $sha and .app.slug == "github-actions")] | sort_by(.id) | last | .status == "completed" and .conclusion == "success"))' \
+            --slurpfile checks "$RUNNER_TEMP/checks.json" --arg sha "$GITHUB_SHA" "$RUNNER_TEMP/checks.json"
+      - name: Build verified payload and source archives
+        run: node harness/release-petra.mjs --output "$RUNNER_TEMP/petra-release"
+      - name: Publish immutable version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(cat harness/VERSION)
+          test -f "docs/releases/$version.md"
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo 'Existing release is never overwritten.' >&2
+            exit 1
+          fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/v$version" -f "sha=$GITHUB_SHA"
+          gh release create "v$version" --verify-tag --title "PETRA $version" \
+            --notes-file "docs/releases/$version.md" "$RUNNER_TEMP/petra-release/"*

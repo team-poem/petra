@@ -99,7 +99,7 @@ sh .petra/bin/petra sobaya bump --install-root "$store" \
 
 후보로 전체 앱 검증이 통과하면 pin 변경을 PR로 검토한다. 다른 팀원은 변경을 받은 뒤 sync한다.
 digest는 현재 팀 pin과 sync 절차를 안내한다. **새 upstream 릴리스 검색·자동 업데이트는 아니다.**
-Sobaya 버전 변경과 PETRA 자체 업데이트는 별개이며 PETRA 업데이트·롤백 명령은 아직 없다.
+Sobaya 버전 변경과 PETRA 자체 업데이트는 별개다. PETRA update/rollback은 [수명주기 안내](petra-lifecycle.md)를 따르며 실행 중인 Sobaya 항목에는 적용하지 않는다.
 
 ## 검증 범위
 
