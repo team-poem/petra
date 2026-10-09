@@ -2,7 +2,7 @@
 branch: codex/petra-first-slice
 owner: solp
 started: 2026-10-09
-status: active
+status: done
 goal: PETRA 소비 배치와 두 clone의 첫 협업 흐름을 구현하고 검증한다
 next: 프로젝트·실행 코드 경로 분리, 임시 쇼핑몰 배포와 협업 회귀 검증
 ---
