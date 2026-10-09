@@ -24,12 +24,12 @@
 | init은 기존 앱 입력을 요구하며 승인하지 않음 | 기능 브랜치에서 사람 소유 명세·검토할 초안을 먼저 준비한다. attach가 생성·수정하지 않으며 사람의 정확한 승인 뒤에만 approve한다 |
 | sync는 pin에 맞는 설치 복원만 수행 | 문서 없는 main이나 새 clone에서도 사용한다. join은 개인 저장소를 추측하거나 자동 attach하지 않는다 |
 | 전달 훅과 연결 정보가 worktree에 속함 | 최초 attach 전에 기존 설정을 점검하고 worktreeConfig를 준비한다. join·init·새 worktree 생성으로 기존 전달 훅을 덮어쓰지 않는다 |
-| check는 연결·전달 훅의 일치 검사 | 전체 payload 검증이나 gate로 표현하지 않는다. 충돌한 메타데이터를 자동 고치지 않는다 |
+| check는 연결·전달 훅의 일치 검사 | 전체 payload 검증이나 gate로 표현하지 않는다. digest는 팀 pin 변경 뒤 명시적인 sync 절차를 안내하며 자동 설치하지 않는다. 충돌한 메타데이터를 자동 고치지 않는다 |
 | bump는 후보의 전체 선언 스위트를 검증 | 깨끗하고 유휴인 연결에서 명시적 후보를 사용한다. 실패 시 보호 상태와 pin을 복원하고, 성공한 두 pin 변경을 PR로 검토한다 |
-| 구형 관리 훅과 함께 실행하면 중복될 수 있음 | 구형 lock·알려진 관리 훅이 있으면 거절한다. 기존 소스 클론 명령은 유지하고 자동 이전하지 않는다. 앱 CLAUDE.md를 재생성하지 않는다 |
+| 구형 관리 훅과 함께 실행하면 중복될 수 있음 | 설치형 명령은 구형 lock·알려진 관리 훅이 있으면 거절한다. 반대로 구형 attach·sync·update는 현재 root pin이나 같은 Git 공용 디렉터리의 설치형 연결 기록이 있으면 Test 변경·source setup·pull 전에 거절한다. 기존 소스 클론 명령은 유지하고 자동 이전하지 않는다. 앱 CLAUDE.md를 재생성하지 않는다 |
 
 계획 보관 뒤 root pin은 남는다. 보관한 브랜치에서 Sobaya 명령을 다시 실행하지 않는 기존 순서를 유지한다. 구형 소스 클론용 주간 알림은 유지하고, 설치형 주간 릴리스 알림·자동 이전은 후속 작업이다.
 
 ## 이 표를 유지하는 방법
 
-구형 `attach-sobaya.sh update` 또는 설치형 후보 bump를 검토할 때 공개 계약과 이 표를 함께 확인한다. 기존 `tests/hooks.sh`·`tests/loop.sh`·`tests/sobaya.sh`, 설치형 `tests/sobaya-installed.sh`, 실제 구형 설치기와 연결하는 `tests/sobaya-legacy-worktree.sh`를 실행한다. 테스트 입력 변경은 사람이 정확한 교체본을 승인해야 한다. fixture v3는 [2026-10-07 승인 기록](../../collab/journal/2026-10-07-Kangmin_Kim-sobaya-v1-fixture-approved.md), 구형 회귀 7개는 [2026-10-08 승인 기록](../../collab/journal/2026-10-08-Kangmin_Kim-sobaya-legacy-approved.md)의 정확한 입력을 적용했다. 실제 소비자 앱의 승인이나 최종 검증은 이 승인으로 대체하지 않는다.
+구형 `attach-sobaya.sh update` 또는 설치형 후보 bump를 검토할 때 공개 계약과 이 표를 함께 확인한다. 기존 `tests/hooks.sh`·`tests/loop.sh`·`tests/sobaya.sh`, 설치형 `tests/sobaya-installed.sh`, 실제 구형 설치기와 연결하는 `tests/sobaya-legacy-worktree.sh`, 혼합 연결·sync 안내 `tests/sobaya-mixed-mode.sh`를 실행한다. 테스트 입력 변경은 사람이 정확한 교체본을 승인해야 한다. fixture v3는 [2026-10-07 승인 기록](../../collab/journal/2026-10-07-Kangmin_Kim-sobaya-v1-fixture-approved.md), 구형 회귀 7개는 [2026-10-08 승인 기록](../../collab/journal/2026-10-08-Kangmin_Kim-sobaya-legacy-approved.md)의 정확한 입력을 적용했다. 혼합 연결 11개는 [2026-10-09 승인 기록](../../collab/journal/2026-10-09-Kangmin_Kim-sobaya-mixed-mode-approved.md)의 정확한 입력을 적용했다. 실제 소비자 앱의 승인이나 최종 검증은 이 승인으로 대체하지 않는다.

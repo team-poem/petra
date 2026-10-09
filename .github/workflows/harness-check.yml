@@ -50,6 +50,12 @@ jobs:
           SOBAYA_TEST_SOURCE: ${{ github.workspace }}/.sobaya-test-source
         # 테스트가 고정 해시를 확인한 뒤에만 설치기를 실행한다. 모델 호출은 fixture 대역이다.
         run: bash tests/sobaya-installed.sh all
+      - name: 혼합 연결 차단과 팀 pin sync 안내 검증
+        shell: bash
+        env:
+          SOBAYA_TEST_ASSETS: ${{ runner.temp }}/sobaya-rc1-assets
+          SOBAYA_TEST_SOURCE: ${{ github.workspace }}/.sobaya-test-source
+        run: bash tests/sobaya-mixed-mode.sh all
   collab:
     name: 협업 규칙 검사
     if: github.event_name == 'pull_request'

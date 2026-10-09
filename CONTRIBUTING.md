@@ -39,6 +39,6 @@
 - `spec.md`·`failed-test.md` 는 브랜치 단위. PR 전에 handoff 가 `collab/journal/plans/` 로 옮긴다. main 에 남기지 않는다.
 
 ## 하네스를 고칠 때
-- 하네스를 고치면 `sh tests/hooks.sh`, `sh tests/loop.sh`, `sh tests/sobaya.sh`, `/bin/bash tests/sobaya-installed.sh all`, `/bin/bash tests/sobaya-legacy-worktree.sh all`을 실행한다. 설치형 스위트는 `SOBAYA_TEST_ASSETS`·`SOBAYA_TEST_SOURCE`, 구형 회귀 스위트는 `SOBAYA_TEST_SOURCE`가 필요하다. [검증 준비와 한계](docs/sobaya-installed.md#8-템플릿-유지보수-검증)를 따른다.
+- 하네스를 고치면 `sh tests/hooks.sh`, `sh tests/loop.sh`, `sh tests/sobaya.sh`, `/bin/bash tests/sobaya-installed.sh all`, `/bin/bash tests/sobaya-legacy-worktree.sh all`, `/bin/bash tests/sobaya-mixed-mode.sh all`을 실행한다. 설치형·혼합 연결 스위트는 `SOBAYA_TEST_ASSETS`·`SOBAYA_TEST_SOURCE`, 구형 회귀 스위트는 `SOBAYA_TEST_SOURCE`가 필요하다. [검증 준비와 한계](docs/sobaya-installed.md#8-템플릿-유지보수-검증)를 따른다.
 - 승인된 테스트는 그대로 유지한다. fixture 수정 v3는 [2026-10-07 승인 기록](collab/journal/2026-10-07-Kangmin_Kim-sobaya-v1-fixture-approved.md)의 정확한 원문을 적용했다. 이후 입력 변경도 별도 승인이 필요하다. macOS·Linux 전체 검증과 별도 완료 리뷰를 확인한 뒤 ready로 전환한다.
 - `harness/VERSION` 을 올리고 `harness/CHANGELOG.md` 에 한 줄.

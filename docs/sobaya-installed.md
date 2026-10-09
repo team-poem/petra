@@ -123,7 +123,7 @@ sh harness/sobaya-installed.sh check --install-root "$store"
 
 `sync`는 root pin을 바꾸지 않고 그 버전·커밋·해시에 맞는 런타임만 준비한다. `--archive`를 생략하면 공개 CLI의 고정 릴리스 다운로드 주소를 쓴다. 최신 버전 검색이나 Git 브랜치 pull은 하지 않는다. feature 문서가 없는 main에 `attach`를 강행하지 않는다. 기능 브랜치가 준비되면 별도로 연결한다.
 
-`check`는 `mode`, `version`, `connected` JSON을 돌려준다. pin만 있고 아직 연결 전이면 `connected:false`이며, 연결 정보와 현재 worktree의 전달 훅이 맞으면 `true`다. 잘못된 연결 정보를 자동 수선하지 않는다. 이는 **설정·연결·전달 훅 검사**이며 전체 설치 payload의 무결성 검사, 테스트 승인, gate 통과를 의미하지 않는다. 실제 Sobaya 명령은 선택된 설치본을 자체 검증한다.
+`check`는 `mode`, `version`, `connected` JSON을 돌려준다. pin만 있고 아직 연결 전이면 `connected:false`이며, 연결 정보와 현재 worktree의 전달 훅이 맞으면 `true`다. 잘못된 연결 정보를 자동 수선하지 않는다. 이는 **설정·연결·전달 훅 검사**이며 전체 설치 payload의 무결성 검사, 테스트 승인, gate 통과를 의미하지 않는다. 실제 Sobaya 명령은 선택된 설치본을 자체 검증한다. digest에서도 이 경계를 안내한다. 동료의 bump를 pull이나 pulse로 반영했으면, 연결 확인과 별개로 `sh harness/sobaya-installed.sh sync --install-root "$store"`를 실행해 새 팀 pin의 런타임을 준비한다. digest는 새 릴리스를 검색하거나 자동 설치하지 않는다.
 
 ## 5. 후속 버전 bump PR
 
@@ -154,13 +154,15 @@ git diff -- sobaya.json sobaya.lock
 
 기존 `harness/attach-sobaya.sh`와 `harness/sobaya.lock`은 소스 클론 방식으로 그대로 사용한다. 구형 lock이나 알려진 구형 Sobaya 관리 훅이 남으면 설치형 연결은 거절한다. 일반 사용자 훅은 보존한다. 충돌을 없애려고 lock·훅·승인 상태를 자동 삭제하지 않는다. 기존 사용자는 구형 연결을 유지하거나 별도 검토한 이전 작업을 진행한다.
 
-구형 attach·sync·update는 새 worktree에서도 공통·worktree의 Git 설정을 그대로 두고 연결한다. 설치기 호출에만 임시 훅 경로를 적용하고, 설치가 성공한 관리 훅을 기존 공용 위치에 게시한다. 공용 pre-commit이 사용자 파일이나 심링크이면 해당 경로를 알리고 중단한다. 설치·게시가 실패하면 임시 파일을 정리하고 어댑터 설정·버전 기록으로 진행하지 않는다. 정상 sync는 종료 코드 0을 반환한다.
+구형 attach·sync·update는 현재 루트의 설치형 pin, 또는 같은 Git 공용 디렉터리를 쓰는 checkout의 설치형 연결 기록이 있으면 먼저 거절한다. 이 검사는 `Test:` 변경·소바야 source setup·pull보다 먼저 실행하며, 충돌 위치를 안내한다. 명령 대상은 스크립트가 속한 앱으로 고정하고 상위 세션에서 전달된 Git 저장소 환경변수는 제거한다. 깨진 연결 JSON·심링크·부분적으로 남은 설치형 metadata도 자동 삭제하거나 무시하지 않는다. 구형 state·lock만 있는 정상 metadata 디렉터리는 허용한다. 서로 다른 clone은 이 검사 범위를 공유하지 않는다.
+
+설치형 연결이 없는 구형 프로젝트는 새 worktree에서도 공통·worktree의 Git 설정을 그대로 두고 연결한다. 설치기 호출에만 임시 훅 경로를 적용하고, 설치가 성공한 관리 훅을 기존 공용 위치에 게시한다. 공용 pre-commit이 사용자 파일이나 심링크이면 해당 경로를 알리고 중단한다. 설치·게시가 실패하면 임시 파일을 정리하고 어댑터 설정·버전 기록으로 진행하지 않는다. 정상 sync는 종료 코드 0을 반환한다.
 
 구형 연결의 자동 이전, 설치형 신규 릴리스 주간 알림, 진행 중 항목의 버전 간 재개는 후속 범위다. 기존 소스 클론용 주간 알림은 유지한다. Poem 폴더 재배치·라이브러리화·명칭 변경도 이 도입에 포함하지 않는다.
 
 ## 8. 템플릿 유지보수 검증
 
-이 템플릿의 유지보수 테스트는 셸로 실행한다. Sobaya에서 셸 테스트를 앱 TDD로 돌리려고 Node 래퍼를 만들지 않는다. 기존 세 스위트 164개, 설치형 아홉 항목, 구형 worktree 회귀 일곱 항목을 함께 검증한다.
+이 템플릿의 유지보수 테스트는 셸로 실행한다. Sobaya에서 셸 테스트를 앱 TDD로 돌리려고 Node 래퍼를 만들지 않는다. 기존 세 스위트 164개, 설치형 아홉 항목, 구형 worktree 회귀 일곱 항목, 혼합 연결·sync 안내 열한 항목을 함께 검증한다.
 
 ```sh
 sh tests/hooks.sh
@@ -173,6 +175,7 @@ export SOBAYA_TEST_SOURCE="/absolute/path/to/sobaya-source-containing-the-public
 /bin/bash tests/sobaya-installed.sh --cycle-support
 /bin/bash tests/sobaya-installed.sh all
 /bin/bash tests/sobaya-legacy-worktree.sh all
+/bin/bash tests/sobaya-mixed-mode.sh all
 ```
 
 `SOBAYA_TEST_SOURCE`는 공개 커밋 `d06384544e81cd373d81e2a940ab336868e04854`를 포함한 로컬 checkout이다. 설치형 스위트는 이 소스의 패키지 생성 스크립트를 확인하고 로컬 bump 후보를 만든다. 구형 스위트는 별도 임시 clone에서 이 커밋의 실제 설치기를 실행한다. 테스트의 Node는 임시 앱 테스트 실행기다. 후보 `1.0.0-rc.2-fixture`는 공개 rc.1을 다시 묶은 로컬 자료이며 공개 릴리스가 아니다.
@@ -183,4 +186,6 @@ export SOBAYA_TEST_SOURCE="/absolute/path/to/sobaya-source-containing-the-public
 
 `tests/sobaya-legacy-worktree.sh`는 [2026-10-08 승인 기록](../collab/journal/2026-10-08-Kangmin_Kim-sobaya-legacy-approved.md)의 SHA-256 `d736cb05b581bf44f48918599053dffb6039cc8c57743d9255041d362e7d1b12` 원문이다. DRAFT 주석도 보존했다. 설정 파일을 설치기 호출 전후에 관찰하고 실제 훅의 성공·실패 전달을 검사한다. 실패 사례는 실제 설치기의 chmod만 대역으로 바꾼다. 관찰 래퍼 때문에 임시 소스 clone은 dirty이므로 네트워크 pull은 생략하며 고정 버전의 로컬 재설치를 검증한다.
 
-CI는 고정된 공개 rc.1 소스·자산으로 전체 180개를 실행한다. Linux 작업은 `flock`의 가용성과 `shlock`의 부재를 확인해 실제 flock 분기를 검증한다. macOS에서는 shlock 분기를 별도로 실행한다. 승인되지 않은 대조군의 통과나 기존 스위트의 통과만으로 전체 연결 기능을 완료 처리하지 않는다.
+`tests/sobaya-mixed-mode.sh`는 [2026-10-09 승인 기록](../collab/journal/2026-10-09-Kangmin_Kim-sobaya-mixed-mode-approved.md)의 SHA-256 `cafb8d85a57cbb761e886f4f70a4e76d8381a5c245e0adf86236ce9ba0d303ce` 원문이다. 같은 checkout과 두 방향의 형제 worktree에서 세 구형 명령을 각각 검증한다. 깨끗한 소스와 한 커밋 앞선 로컬 origin으로 거절 전에 pull하지 않는지도 확인한다. 정상 구형 상태 대조군과 실제 peer push·pulse 병합·미설치 훅 실패·명시적 sync 복구를 포함하며, 마지막에는 digest의 sync 안내를 검사한다. 임시 앱의 합성 상태는 실제 사용자의 승인이나 완료 리뷰가 아니다.
+
+CI는 고정된 공개 rc.1 소스·자산으로 전체 191개를 실행한다. Linux 작업은 `flock`의 가용성과 `shlock`의 부재를 확인해 실제 flock 분기를 검증한다. macOS에서는 shlock 분기를 별도로 실행한다. 승인되지 않은 대조군의 통과나 기존 스위트의 통과만으로 전체 연결 기능을 완료 처리하지 않는다.

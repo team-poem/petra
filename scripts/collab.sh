@@ -153,6 +153,7 @@ digest)
       version="$(jq -r '.runtime.version // "invalid"' "$ROOT/sobaya.json" 2>/dev/null || echo invalid)"
       if sobaya_connection_status >/dev/null 2>&1; then
         echo "- sobaya $version · 이 worktree의 설치형 연결 확인$(sobaya_approved && echo ' · 승인 상태 있음(main 따라잡기는 merge)')"
+        echo "  연결 확인은 선택 버전의 설치 준비 검사가 아닙니다. 팀 pin이 바뀌었다면 sh harness/sobaya-installed.sh sync --install-root STORE 로 이 버전을 준비하세요."
       else
         echo "- sobaya $version · 개인 저장소로 sobaya-installed.sh sync --install-root STORE 후, 기능 명세를 준비해 attach 하세요. 기존 연결이 있으면 check 로 충돌부터 확인하세요."
       fi

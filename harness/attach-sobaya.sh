@@ -8,13 +8,46 @@
 #
 # 배치: sobaya 워크스페이스 안에 이 리포를 둔다 (sobaya/apps/<이 리포>). 다른 곳이면 --sobaya 또는 harness/config.sh SOBAYA_ROOT.
 set -u
+# 호출한 Git 명령의 저장소 설정으로 다른 checkout을 검사하지 않는다.
+for name in $(git rev-parse --local-env-vars); do unset "$name"; done
 ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"; cd "$ROOT"
-. "$ROOT/harness/hooks/lib.sh"
 LOCK="$ROOT/harness/sobaya.lock"
 die() { echo "✗ $*" >&2; exit 1; }
 cmd="${1:-}"; [ $# -gt 0 ] && shift
 sob=""; testcmd=""
 while [ $# -gt 0 ]; do case "$1" in --sobaya) sob="$2"; shift ;; --test) testcmd="$2"; shift ;; esac; shift; done
+guard_installed_connections() (
+  for pin in "$ROOT/sobaya.json" "$ROOT/sobaya.lock"; do
+    if [ -e "$pin" ] || [ -L "$pin" ]; then
+      die "설치형 설정 보존: $ROOT ($pin) — 구형 $cmd 중단. 자동 이전하지 않습니다."
+    fi
+  done
+  common="$(git -C "$ROOT" rev-parse --git-common-dir)" || die "Git 공용 디렉터리를 찾지 못함"
+  case "$common" in /*) ;; *) common="$ROOT/$common" ;; esac
+  common="$(cd "$common" && pwd -P)" || die "Git 공용 디렉터리에 접근하지 못함"
+  # 공용 훅을 공유하는 모든 연결 기록을 본다. 구형 state/lock만 있는 디렉터리는 허용한다.
+  for meta in "$common/sobaya" "$common"/worktrees/*/sobaya; do
+    conflict=""
+    if [ -L "$meta" ] || { [ -e "$meta" ] && [ ! -d "$meta" ]; }; then
+      conflict="$meta"
+    else
+      for marker in connection.json original-hooks.json hooks; do
+        if [ -e "$meta/$marker" ] || [ -L "$meta/$marker" ]; then conflict="$meta/$marker"; break; fi
+      done
+    fi
+    [ -n "$conflict" ] || continue
+    app="$meta"
+    if [ ! -L "$meta" ] && [ -f "$meta/connection.json" ] && [ ! -L "$meta/connection.json" ]; then
+      connected_app="$(jq -er '.app // .root | select(type == "string" and length > 0)' "$meta/connection.json" 2>/dev/null)" && app="$connected_app"
+    fi
+    die "설치형 연결 보존: $app ($conflict) — 구형 $cmd 중단. 기존 연결을 확인하고 이전은 별도로 검토하세요."
+  done
+)
+# lib.sh의 캐시 준비와 set_test/setup/pull보다 먼저 거절한다.
+case "$cmd" in attach|sync|update) guard_installed_connections || exit 1 ;; esac
+# 단독 CLI의 대상은 이 스크립트가 속한 앱이다. 상위 세션 경로로 바꾸지 않는다.
+export CLAUDE_PROJECT_DIR="$ROOT"
+. "$ROOT/harness/hooks/lib.sh"
 if [ -n "$sob" ]; then sob="$(cd "$sob" && pwd -P)" || die "sobaya 경로 없음: $sob"; else sob="$(sobaya_root)" || die "sobaya 워크스페이스를 못 찾음. 이 리포를 sobaya/apps/ 아래에 두거나 --sobaya PATH"; fi
 [ -x "$sob/tdd-set/bin/install.sh" ] || die "$sob 는 sobaya 워크스페이스가 아님 (tdd-set/bin/install.sh 없음)"
 sob_head() { git -C "$sob" rev-parse HEAD 2>/dev/null; }
