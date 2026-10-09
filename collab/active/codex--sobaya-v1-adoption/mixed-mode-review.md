@@ -1,0 +1,623 @@
+# 테스트 검토용 보기
+
+대상: tests/sobaya-mixed-mode.sh · 항목: mixed-mode refusal, legacy compatibility, and explicit sync guidance
+
+원본 SHA-256: `cafb8d85a57cbb761e886f4f70a4e76d8381a5c245e0adf86236ce9ba0d303ce`  
+원본: 16054 bytes · 308 lines · final LF: true
+
+아래 코드 블록은 원본 전체이며, 설명은 실행 파일에 포함되지 않습니다.
+
+```bash
+#!/bin/bash
+# DRAFT: 사람이 승인하기 전에는 구현 기준이나 CI 테스트로 사용하지 않는다.
+set -eu
+set -o pipefail
+unset CLAUDE_PROJECT_DIR GITHUB_HEAD_REF GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+unset GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
+unset COLLAB_RUN_FORCE COLLAB_SKIP_WIP COLLAB_ALLOW_PROTECTED_PUSH COLLAB_ALLOW_MERGED_PUSH
+unset DRAFT_SUITE_FAIL DRAFT_LINT_FAIL DRAFT_CUSTOM_FAIL SOBAYA_ROOT SOBAYA_DRAFT_ADAPTER
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_ALLOW_PROTOCOL=file
+SRC=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+ASSETS=${SOBAYA_TEST_ASSETS:?공개 rc.1 자산 디렉터리가 필요합니다}
+UPSTREAM=${SOBAYA_TEST_SOURCE:?소바야 소스 체크아웃이 필요합니다}
+CASE=${1:-all}
+for tool in git jq node tar gzip shasum cmp; do
+  command -v "$tool" >/dev/null || { printf 'NOT PROBED: missing %s\n' "$tool"; exit 2; }
+done
+command -v shlock >/dev/null || command -v flock >/dev/null || { echo 'NOT PROBED: lock tool missing'; exit 2; }
+V1=1.0.0-rc.1
+V2=1.0.0-rc.2-fixture
+PIN=d06384544e81cd373d81e2a940ab336868e04854
+DIGEST=d8b4e49a149a0e637c94a6663fb6433b8d0621dc376e31d776babbea247551b8
+MANIFEST="$ASSETS/sobaya-$V1.json"
+ARCHIVE="$ASSETS/sobaya-$V1.tar.gz"
+jq -e --arg c "$PIN" --arg h "$DIGEST" '.runtime.commit==$c and .runtime.sha256==$h and .runtime.version=="1.0.0-rc.1"' "$MANIFEST" >/dev/null
+[ "$(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)" = "$DIGEST" ]
+[ "$(shasum -a 256 "$ASSETS/install-runtime.sh" | cut -d' ' -f1)" = 4f2201dfe8afe7041233451bcfd4de24b86a9e3ddd5558f5e525bba9d7fb2ccf ]
+[ "$(shasum -a 256 "$UPSTREAM/scripts/package-release.sh" | cut -d' ' -f1)" = "$(git -C "$UPSTREAM" show "$PIN:scripts/package-release.sh" | shasum -a 256 | cut -d' ' -f1)" ]
+R=$(mktemp -d "${TMPDIR:-/tmp}/poem-installed-draft.XXXXXX")
+R=$(cd "$R" && pwd -P)
+mkdir "$R/git-template"
+export GIT_TEMPLATE_DIR="$R/git-template"
+LOCK_PID=
+cleanup() {
+  if [ -n "$LOCK_PID" ]; then kill "$LOCK_PID" 2>/dev/null || :; wait "$LOCK_PID" 2>/dev/null || :; fi
+  if [ "${SOBAYA_KEEP_DRAFT_EVIDENCE:-0}" = 1 ]; then printf 'EVIDENCE: %s\n' "$R"; else rm -rf "$R"; fi
+}
+trap cleanup EXIT
+fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
+same() { cmp -s "$1" "$2" || fail "changed: $1"; }
+has() { grep -Fq -- "$2" "$1" || fail "missing <$2> in $1"; }
+invoke() { if "$@" > "$R/out" 2> "$R/err"; then RC=0; else RC=$?; fi; }
+okay() { [ "$RC" -eq 0 ] || { cat "$R/err" >&2; fail "exit $RC"; }; }
+rejected() { [ "$RC" -ne 0 ] || fail 'expected refusal'; has "$R/err" "$1"; }
+mkdir -p "$R/sentinels"
+cat > "$R/sentinels/curl" <<'SENTINEL'
+#!/bin/sh
+printf '%s\n' "$0 $*" >> "$DRAFT_NETWORK_LOG"
+exit 93
+SENTINEL
+cp "$R/sentinels/curl" "$R/sentinels/codex"
+cat > "$R/sentinels/gh" <<'GH'
+#!/bin/sh
+# 협업 도구의 선택적인 GitHub 조회만 오프라인으로 대체한다.
+exit 1
+GH
+chmod +x "$R/sentinels/"*
+export DRAFT_NETWORK_LOG="$R/network" PATH="$R/sentinels:$PATH"
+mkdir -p "$R/candidate-source" "$R/candidate-output"
+tar -xzf "$ARCHIVE" -C "$R/candidate-source" --strip-components=1
+git -C "$R/candidate-source" init -q
+git -C "$R/candidate-source" config user.name Fixture
+git -C "$R/candidate-source" config user.email fixture@example.invalid
+git -C "$R/candidate-source" add -A
+git -C "$R/candidate-source" -c core.hooksPath=/dev/null commit -qm fixture-runtime
+CANDIDATE_SHA=$(git -C "$R/candidate-source" rev-parse HEAD)
+git -C "$R/candidate-source" tag "v$V2"
+/bin/bash "$UPSTREAM/scripts/package-release.sh" --source "$R/candidate-source" --version "$V2" --commit "$CANDIDATE_SHA" --output "$R/candidate-output/release" > "$R/package.json"
+CANDIDATE_MANIFEST="$R/candidate-output/release/sobaya-$V2.json"
+CANDIDATE_ARCHIVE="$R/candidate-output/release/sobaya-$V2.tar.gz"
+serial=0
+fixture() {
+  serial=$((serial+1))
+  W="$R/case-$serial"; APP="$W/app's path"; STORE="$W/store with spaces"
+  mkdir -p "$APP" "$W/remote.git"
+  cp -R "$SRC/harness" "$SRC/scripts" "$SRC/.githooks" "$SRC/.claude" "$SRC/.codex" "$SRC/collab" "$SRC/.gitignore" "$APP/"
+  rm -rf "$APP/.claude/cache" "$APP/collab/active" "$APP/collab/journal"
+  mkdir -p "$APP/.claude/cache" "$APP/collab/active/feat--runtime" "$APP/collab/journal" "$APP/src"
+  cat > "$APP/AGENTS.md" <<'CONTRACT'
+# Fixture application
+- Test: `node --test suite.test.cjs`
+- Lint: `node lint.cjs`
+CONTRACT
+  printf '# Fixture goal\nPreserve the existing collaboration contract.\n' > "$APP/spec.md"
+  printf '# Fixture plan\nNo real application approval is granted.\n' > "$APP/failed-test.md"
+  printf 'module.exports = 42;\n' > "$APP/src/value.cjs"
+  cat > "$APP/suite.test.cjs" <<'SUITE'
+// file: suite.test.cjs
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+test('baselineValue', () => {
+  const pin = JSON.parse(fs.readFileSync('sobaya.json', 'utf8'));
+  fs.appendFileSync(process.env.DRAFT_EVENTS, `suite:${pin.runtime.version}\n`);
+  assert.equal(require('./src/value.cjs'), 42);
+  assert.notEqual(process.env.DRAFT_SUITE_FAIL, '1');
+});
+SUITE
+  cat > "$APP/lint.cjs" <<'LINT'
+require('node:fs').appendFileSync(process.env.DRAFT_EVENTS, 'lint\n');
+process.exit(process.env.DRAFT_LINT_FAIL === '1' ? 1 : 0);
+LINT
+  printf -- '---\nbranch: feat/runtime\nowner: fixture\nstarted: 2026-10-06\nstatus: active\ngoal: fixture\n---\n' > "$APP/collab/active/feat--runtime/claim.md"
+  git -C "$W/remote.git" init -q --bare
+  git -C "$APP" init -q -b main
+  mkdir -p "$APP/.git/hooks"
+  git -C "$APP" config user.name Fixture
+  git -C "$APP" config user.email fixture@example.invalid
+  git -C "$APP" config collab.me fixture
+  git -C "$APP" config collab.onboarded true
+  git -C "$APP" config extensions.worktreeConfig true
+  git -C "$APP" config core.hooksPath .githooks
+  git -C "$APP" remote add origin "$W/remote.git"
+  fixture_commit
+  git -C "$APP" push -q origin main
+  git -C "$APP" switch -qc feat/runtime
+  META=$(git -C "$APP" rev-parse --absolute-git-dir)/sobaya
+  export DRAFT_EVENTS="$W/events"
+  : > "$DRAFT_EVENTS"
+  invoke /bin/bash "$ASSETS/install-runtime.sh" --root "$APP" --install-root "$STORE" --version "$V1" --manifest "$MANIFEST" --archive "$ARCHIVE"
+  okay
+}
+fixture_commit() {
+  git -C "$APP" add -A
+  if ! git -C "$APP" diff --cached --quiet; then git -C "$APP" -c core.hooksPath=/dev/null commit -qm fixture; fi
+}
+adapter() {
+  local script="$APP/harness/sobaya-installed.sh"
+  [ -f "$script" ] || { echo 'NOT PROBED: harness/sobaya-installed.sh is absent' >&2; exit 2; }
+  (cd "$APP"; invoke /bin/sh "$script" "$@"; printf '%s\n' "$RC" > "$R/rc")
+  RC=$(cat "$R/rc")
+}
+attach() {
+  adapter attach --install-root "$STORE" --version "$V1"
+  okay
+  [ -f "$META/connection.json" ] && [ -f "$APP/sobaya.json" ] && [ -f "$APP/sobaya.lock" ] || fail 'attach returned success without a connection'
+}
+
+snapshot_path() {
+  local path=$1
+  printf 'path %s\n' "$path"
+  if [ -L "$path" ]; then printf 'link %s\n' "$(readlink "$path")"
+  elif [ -f "$path" ]; then shasum -a 256 "$path"; [ ! -x "$path" ] || echo executable
+  elif [ -d "$path" ]; then
+    echo directory
+    find "$path" -mindepth 1 -print | LC_ALL=C sort | while IFS= read -r child; do
+      [ -d "$child" ] && [ ! -L "$child" ] && { printf 'directory %s\n' "$child"; continue; }
+      snapshot_path "$child"
+    done
+  else echo absent; fi
+}
+connection_snapshot() {
+  local root meta file
+  for root in "$APP" "$TARGET"; do
+    meta=$(git -C "$root" rev-parse --absolute-git-dir)
+    for file in AGENTS.md spec.md failed-test.md sobaya.json sobaya.lock harness/sobaya.lock .githooks; do snapshot_path "$root/$file"; done
+    for file in config.worktree sobaya; do snapshot_path "$meta/$file"; done
+    git -C "$root" rev-parse HEAD
+    git -C "$root" ls-files --stage
+    find "$root" -name .git -prune -o -path "$root/.claude/cache" -prune -o -print | LC_ALL=C sort
+  done
+  snapshot_path "$COMMON/config"
+  snapshot_path "$COMMON/hooks"
+  git -C "$SOB" rev-parse HEAD
+  for file in .git/config .git/FETCH_HEAD .git/info/exclude .claude CLAUDE.md; do snapshot_path "$SOB/$file"; done
+}
+installed_check() {
+  adapter check --install-root "$STORE"
+  okay
+  jq -e '.connected==true' "$R/out" >/dev/null || fail 'installed connection lost'
+}
+exercise_installed_hook() {
+  printf "module.exports = 43;\n" > "$APP/src/value.cjs"
+  git -C "$APP" add src/value.cjs
+  : > "$DRAFT_EVENTS"
+  invoke /bin/sh -c 'cd "$1"; exec "$2"' hook "$APP" "$META/hooks/pre-commit"
+  okay
+  printf 'lint\n' > "$W/expected-lint"
+  same "$DRAFT_EVENTS" "$W/expected-lint"
+  local claim="$APP/collab/active/$(git -C "$APP" branch --show-current | sed 's#/#--#g')/claim.md"
+  mv "$claim" "$W/claim.saved"
+  : > "$DRAFT_EVENTS"
+  invoke /bin/sh -c 'cd "$1"; exec "$2"' hook "$APP" "$META/hooks/pre-commit"
+  [ "$RC" -ne 0 ] && [ ! -s "$DRAFT_EVENTS" ] || fail 'collaboration rejection lost'
+  mv "$W/claim.saved" "$claim"
+  git -C "$APP" reset -q HEAD -- src/value.cjs
+  git -C "$APP" checkout -- src/value.cjs
+}
+prepare_source() {
+  SOB="$W/sobaya source"
+  git clone -q --no-hardlinks --no-checkout "$UPSTREAM" "$SOB"
+  git -C "$SOB" checkout -qb fixture-pull "$PIN"
+  git clone -q --bare "$SOB" "$W/source-origin.git"
+  git -C "$SOB" remote set-url origin "$W/source-origin.git"
+  git -C "$SOB" fetch -q origin fixture-pull
+  git -C "$SOB" branch --set-upstream-to=origin/fixture-pull >/dev/null
+  git clone -q "$W/source-origin.git" "$W/source-peer"
+  git -C "$W/source-peer" -c user.name=Fixture -c user.email=fixture@example.invalid -c core.hooksPath=/dev/null commit -q --allow-empty -m fixture-source-update
+  git -C "$W/source-peer" push -q origin fixture-pull
+  [ "$(git -C "$SOB" rev-parse HEAD)" = "$PIN" ] || fail 'source fixture started at wrong commit'
+}
+mixed_refusal() {
+  local topology=$1 action=$2 primary sibling
+  fixture
+  primary=$APP
+  if [ "$topology" != same ]; then
+    invoke env CLAUDE_PROJECT_DIR="$APP" /bin/sh "$APP/scripts/collab.sh" worktree feat/sibling
+    okay
+    sibling="$W/app's path-feat--sibling"
+    mkdir -p "$sibling/collab/active/feat--sibling"
+    sed 's#branch: feat/runtime#branch: feat/sibling#' "$APP/collab/active/feat--runtime/claim.md" > "$sibling/collab/active/feat--sibling/claim.md"
+  fi
+  case "$topology" in
+    same) TARGET=$APP ;;
+    installed_primary) TARGET=$sibling ;;
+    installed_linked) TARGET=$primary; APP=$sibling; META=$(git -C "$APP" rev-parse --absolute-git-dir)/sobaya ;;
+  esac
+  attach; fixture_commit
+  jq -n --arg head "$(git -C "$APP" rev-parse HEAD)" '{version:1,baseline:$head,calls:7,active:null,review:{head:$head},fixture:true}' > "$META/state.json"
+  COMMON=$(cd "$APP" && cd "$(git rev-parse --git-common-dir)" && pwd -P)
+  if [ "$topology" != same ]; then
+    [ ! -e "$TARGET/sobaya.json" ] && [ ! -e "$TARGET/sobaya.lock" ] || fail 'legacy target unexpectedly has pins'
+    [ ! -e "$(git -C "$TARGET" rev-parse --absolute-git-dir)/sobaya/connection.json" ] || fail 'legacy target unexpectedly connected'
+  fi
+  [ ! -e "$COMMON/hooks/pre-commit" ] || fail 'shared hook would mask mixed-mode defect'
+  prepare_source
+  installed_check; exercise_installed_hook
+  connection_snapshot > "$W/before"
+  invoke /bin/sh -c 'cd "$1"; exec sh harness/attach-sobaya.sh "$2" --sobaya "$3" --test "node --test changed.test.cjs"' legacy "$TARGET" "$action" "$SOB"
+  cp "$R/out" "$W/legacy.out"; cp "$R/err" "$W/legacy.err"
+  printf '%s\n' "$RC" > "$W/legacy.rc"
+  connection_snapshot > "$W/after"
+  [ "$RC" -ne 0 ] || fail "$topology/$action accepted installed/legacy mixing"
+  cat "$W/legacy.out" "$W/legacy.err" > "$W/legacy.log"
+  has "$W/legacy.log" "$APP"
+  has "$W/legacy.log" '설치형'
+  same "$W/before" "$W/after"
+  installed_check; exercise_installed_hook
+  [ ! -e "$DRAFT_NETWORK_LOG" ] || fail 'unexpected network/provider invocation'
+}
+legacy_state_control() {
+  fixture; TARGET=$APP
+  prepare_source
+  mkdir -p "$META"
+  printf '{"active":null,"fixture":true}\n' > "$META/state.json"
+  cp "$META/state.json" "$W/state.before"
+  for action in attach sync update; do
+    invoke /bin/sh -c 'cd "$1"; exec sh harness/attach-sobaya.sh "$2" --sobaya "$3"' legacy "$APP" "$action" "$SOB"
+    okay
+    same "$META/state.json" "$W/state.before"
+    [ ! -e "$APP/sobaya.json" ] && [ ! -e "$APP/sobaya.lock" ] && [ ! -e "$META/connection.json" ] || fail 'legacy state was migrated'
+  done
+  [ ! -e "$DRAFT_NETWORK_LOG" ] || fail 'unexpected network/provider invocation'
+}
+pin_sync_guidance() {
+  fixture; attach; fixture_commit
+  git -C "$APP" branch -f main HEAD
+  git -C "$APP" -c core.hooksPath=/dev/null push -q origin main
+  printf 'feature\n' > "$APP/feature.txt"; fixture_commit
+  feature_head=$(git -C "$APP" rev-parse HEAD)
+  git clone -q -b main "$W/remote.git" "$W/peer"
+  jq --arg version "$V2" '.runtime.version=$version' "$APP/sobaya.json" > "$W/peer/sobaya.json"
+  jq --argjson runtime "$(jq .runtime "$CANDIDATE_MANIFEST")" '.runtime=$runtime' "$APP/sobaya.lock" > "$W/peer/sobaya.lock"
+  git -C "$W/peer" add sobaya.json sobaya.lock
+  git -C "$W/peer" -c user.name=Peer -c user.email=peer@example.invalid -c core.hooksPath=/dev/null commit -qm fixture-team-pin
+  git -C "$W/peer" push -q origin main
+  peer_head=$(git -C "$W/peer" rev-parse HEAD)
+  cp "$META/connection.json" "$W/connection.before"
+  cp "$META/hooks/pre-commit" "$W/forwarder.before"
+  invoke env CLAUDE_PROJECT_DIR="$APP" /bin/sh "$APP/scripts/collab.sh" pulse
+  okay; cp "$R/out" "$W/pulse.out"
+  git -C "$APP" merge-base --is-ancestor "$feature_head" HEAD
+  git -C "$APP" merge-base --is-ancestor "$peer_head" HEAD
+  [ -z "$(git -C "$APP" status --porcelain)" ] || fail 'pulse left dirty integration'
+  same "$APP/sobaya.json" "$W/peer/sobaya.json"; same "$APP/sobaya.lock" "$W/peer/sobaya.lock"
+  [ ! -e "$STORE/runtimes/$V2" ] || fail 'pulse auto-installed runtime'
+  installed_check
+  jq -e --arg version "$V2" '.version==$version' "$R/out" >/dev/null || fail 'check ignored team pin'
+  invoke env CLAUDE_PROJECT_DIR="$APP" /bin/sh "$APP/scripts/collab.sh" digest
+  okay; cp "$R/out" "$W/digest.out"
+  same "$META/connection.json" "$W/connection.before"; same "$META/hooks/pre-commit" "$W/forwarder.before"
+  [ ! -e "$META/state.json" ] && [ ! -e "$STORE/runtimes/$V2" ] || fail 'advisory changed approval/runtime'
+  invoke /bin/sh -c 'cd "$1"; exec "$2"' hook "$APP" "$META/hooks/pre-commit"
+  [ "$RC" -ne 0 ] || fail 'missing runtime unexpectedly ready'
+  has "$R/err" 'selected runtime is not installed'
+  adapter sync --install-root "$STORE" --archive "$CANDIDATE_ARCHIVE"
+  okay
+  exercise_installed_hook
+  same "$APP/sobaya.json" "$W/peer/sobaya.json"; same "$APP/sobaya.lock" "$W/peer/sobaya.lock"
+  same "$META/connection.json" "$W/connection.before"; same "$META/hooks/pre-commit" "$W/forwarder.before"
+  [ ! -e "$META/state.json" ] && [ ! -e "$DRAFT_NETWORK_LOG" ] || fail 'sync changed approval or invoked network/provider'
+  has "$W/digest.out" "$V2"
+  has "$W/digest.out" 'sobaya-installed.sh sync --install-root'
+}
+export SRC ASSETS UPSTREAM R V1 V2 PIN MANIFEST ARCHIVE CANDIDATE_MANIFEST CANDIDATE_ARCHIVE
+names='same/attach same/sync same/update installed_primary/attach installed_primary/sync installed_primary/update installed_linked/attach installed_linked/sync installed_linked/update legacy_state_control pin_sync_guidance'
+total=0; failed=0
+for name in $names; do
+  [ "$CASE" = all ] || [ "$CASE" = "$name" ] || continue
+  total=$((total+1))
+  # A separate shell preserves errexit inside each case even though this caller uses if.
+  if /bin/bash -eu -o pipefail -c "$(declare -f); serial=0; case \"\$1\" in pin_sync_guidance) pin_sync_guidance ;; legacy_state_control) legacy_state_control ;; *) mixed_refusal \"\${1%/*}\" \"\${1#*/}\" ;; esac" _ "$name"; then
+    printf 'PASS: %s\n' "$name"
+  else failed=$((failed+1)); printf 'FAIL: %s\n' "$name"; fi
+  [ ! -d "$R/case-1" ] || mv "$R/case-1" "$R/${name//\//-}"
+done
+[ "$total" -gt 0 ] || fail "unknown case: $CASE"
+printf '%s cases, %s failed\n' "$total" "$failed"
+[ "$failed" -eq 0 ]
+```
+
+┎ L1–L4
+
+- **동작:** 이 파일을 Bash 테스트 초안으로 표시하고, 처리하지 않은 명령 실패·미정의 변수·파이프 내부 실패가 생기면 실행을 중단한다.
+- **이유:** 준비 단계가 실패했는데도 뒤의 검증이 성공한 것처럼 보이는 일을 막고, 사람이 승인하기 전의 탐침과 승인된 회귀 테스트를 구분한다.
+- **근거·가정:** 초안은 승인 전 구현 기준이나 CI 입력으로 사용하지 않는다는 소바야 계약에 따른다. Bash는 기존 하네스 언어이며 이 선언이 Bash 3.2 호환성을 별도로 증명하지는 않는다.
+- **검증과의 관계:** 이후 모든 사례의 공통 실행 조건이다. 명시적으로 종료 코드를 수집하는 invoke 내부의 실패는 중단 대신 검증 대상으로 보존한다.
+
+┎ L5–L9
+
+- **동작:** 호출한 세션의 Git 경로·프로젝트 경로·협업 우회 옵션·실패 주입 변수·소바야 경로를 제거하고, 전역 및 시스템 Git 설정을 무시하며 Git 통신은 로컬 파일 프로토콜로 제한한다.
+- **이유:** 실제 사용자의 저장소나 우회 설정이 임시 사례에 섞이거나, 이전 사례의 실패 주입이 다음 사례의 결과를 바꾸지 않도록 한다.
+- **근거·가정:** 격리된 로컬 재현을 위한 테스트 설계다. 삭제 목록은 이 초안이 알고 있는 환경 변수이며 모든 가능한 외부 환경을 없애는 보안 격리 장치는 아니다.
+- **검증과의 관계:** 후속 저장소 조작과 hook 검사가 임시 저장소를 대상으로 이루어지게 돕는다. Git 이외의 모든 네트워크 접근을 차단했다는 증거는 아니다.
+
+┎ L10–L13
+
+- **동작:** 초안 파일이 속한 저장소를 제품 코드 원본으로 삼고, 공개 배포 자산과 소바야 소스 체크아웃 경로를 필수 입력으로 받으며 실행할 사례는 기본적으로 전체를 선택한다.
+- **이유:** 어느 디렉터리에서 실행해도 검토 중인 저장소 코드를 복사하고, 네트워크로 자료를 임의 조달하지 않으며, 같은 자료로 개별 실패 사례를 다시 실행할 수 있게 한다.
+- **근거·가정:** SOBAYA&#95;TEST&#95;ASSETS와 SOBAYA&#95;TEST&#95;SOURCE는 이 초안의 준비 입력이다. all은 전체 사례 선택을 나타내는 식별자이며 제품 설정값이 아니다.
+- **검증과의 관계:** 배포 자산은 18~27줄에서 검증하고 제품 코드는 75줄에서 복사한다. 경로를 제공했다는 사실만으로 그 내용의 신뢰성이 확인되는 것은 아니다.
+
+┎ L14–L17
+
+- **동작:** Git·jq·Node·압축 및 해시·비교 도구와 shlock 또는 flock 중 하나가 있는지 확인하고, 없으면 NOT PROBED와 종료 코드 2로 실행 불가를 알린다.
+- **이유:** 검증 자체를 실행하지 못한 상황을 제품 동작 실패나 통과와 혼동하지 않도록 한다. 두 잠금 도구를 허용해 macOS와 Linux의 기존 협업 경로를 사용할 수 있게 한다.
+- **근거·가정:** Node는 뒤에서 만드는 예제 앱의 Test와 Lint 명령을 실행하기 위한 의존성이다. 제품 하네스를 Node로 변경한다는 요구나 승인이 아니다. 종료 코드 2와 NOT PROBED는 이 초안의 보고 규칙이다.
+- **검증과의 관계:** 후속 실제 명령 실행의 선행 조건이며 각 도구의 버전별 호환성이나 아직 사용하지 않은 모든 Unix 도구의 존재까지 검사하지는 않는다.
+
+┎ L18–L23
+
+- **동작:** 기준 배포를 1.0.0-rc.1과 고정 커밋·아카이브 SHA-256으로 지정하고, 별도의 1.0.0-rc.2-fixture 이름과 기준 배포 파일 경로를 준비한다.
+- **이유:** 기준 실행기가 실행할 때마다 달라지지 않게 하면서, 팀의 버전 고정값만 앞서 바뀌는 상황을 별도의 로컬 후보 버전으로 재현한다.
+- **근거·가정:** rc.1·d06384544e81cd373d81e2a940ab336868e04854·d8b4e49a149a0e637c94a6663fb6433b8d0621dc376e31d776babbea247551b8은 공개 기준 배포에 대응하는 고정값이다. rc.2-fixture는 테스트용 이름이며 실제 rc.2 출시를 뜻하지 않는다.
+- **검증과의 관계:** 18~23줄은 값을 선택할 뿐이다. 다음 범위의 검사가 제공된 파일이 이 고정값과 일치하는지 확인하며, 후보 버전의 내용은 58~69줄에서 로컬로 만든다.
+
+┎ L24–L27
+
+- **동작:** manifest의 커밋·버전·아카이브 해시, 실제 아카이브 해시, 설치 스크립트의 고정 해시를 확인하고, 후보 생성에 쓸 패키징 스크립트가 기준 커밋의 파일과 같은지도 비교한다.
+- **이유:** 다른 배포물이나 수정된 설치·패키징 도구 때문에 재현 결과가 달라지는 일을 초기에 차단한다.
+- **근거·가정:** 설치 스크립트의 4f2201dfe8afe7041233451bcfd4de24b86a9e3ddd5558f5e525bba9d7fb2ccf 역시 기준 공개 자산의 고정 SHA-256이다. 패키징 스크립트는 임의의 예시 해시 대신 고정 커밋의 실제 파일과 비교한다.
+- **검증과의 관계:** 이 초안이 사용하는 기준 자료의 바이트 일치를 보장한다. 소스 체크아웃 전체의 무변경 상태나 배포자의 전자서명까지 검증하는 절차는 아니다.
+
+┎ L28–L31
+
+- **동작:** 매 실행마다 임시 작업 디렉터리를 만들고 물리 경로로 정규화한 뒤, 새 Git 저장소용 템플릿을 빈 디렉터리로 고정한다.
+- **이유:** 사례를 사용자의 실제 저장소와 분리하고, 시스템의 Git 템플릿이 예상 밖의 hook이나 파일을 넣어 결과를 바꾸지 않도록 한다.
+- **근거·가정:** 임시 디렉터리 접두사는 이 초안의 식별용 예시다. 실제 경로는 운영체제의 TMPDIR 또는 /tmp와 mktemp가 결정하며 특정 절대 경로가 요구사항은 아니다.
+- **검증과의 관계:** 후속 모든 복제·설치·후보 배포가 이 임시 공간 아래에서 실행된다. 제품의 저장 경로 정책을 이 접두사로 제한하는 테스트는 아니다.
+
+┎ L32–L37
+
+- **동작:** 종료 시 기록된 잠금 프로세스가 있으면 종료와 회수를 시도하고, 증거 보존 옵션이 1이면 임시 경로를 출력하며 아니면 작업 공간을 삭제한다.
+- **이유:** 실패한 탐침도 잠금과 임시 파일을 남기지 않게 하되, 원인 분석이 필요할 때는 실제 산출물을 보존할 수 있게 한다.
+- **근거·가정:** LOCK&#95;PID의 빈 초기값은 아직 정리할 프로세스가 없다는 뜻이다. SOBAYA&#95;KEEP&#95;DRAFT&#95;EVIDENCE=1은 테스트 조사용 선택이며 제품 동작을 바꾸지 않는다.
+- **검증과의 관계:** 정상 종료와 오류 종료에 같은 정리를 적용한다. 정리 오류를 무시하는 것은 원래 검증 실패를 가리지 않기 위한 것으로, 정리 자체의 성공을 검증하지는 않는다. 현재 사례들은 잠금 프로세스를 시작하지 않으므로 LOCK&#95;PID 정리 분기는 실행하지 않는다.
+
+┎ L38–L43
+
+- **동작:** 실패 메시지 출력, 파일 바이트 비교, 고정 문자열 포함 검사, 명령의 출력·종료 코드 수집, 성공 및 거절 검사 함수를 정의한다. 예상 밖의 종료 코드에는 해당 명령의 표준 오류도 출력한다.
+- **이유:** 예상된 거절은 테스트 프로세스의 조기 종료로 처리하지 않고 결과로 검사하며, 거절의 이유와 변경 금지 대상의 바이트 보존을 구분해서 확인한다.
+- **근거·가정:** 성공은 종료 코드 0, 거절은 0이 아닌 코드와 요구한 오류 문자열의 동시 충족으로 정의한다. 문자열은 정규식이 아닌 고정 문자열로 찾는다. 코드의 구체적인 거절 번호까지 고정한 계약은 아니다.
+- **검증과의 관계:** 후속 사례의 공통 판정 도구다. same은 두 파일의 내용만 비교하고 권한 등은 별도 snapshot이 담당하며, has는 문자열이 보인다는 것 이상을 증명하지 않는다. 이 초안에서는 mixed&#95;refusal이 거절을 직접 판정하며 공통 rejected helper는 호출하지 않는다.
+
+┎ L44–L50
+
+- **동작:** curl과 codex 대신 실행될 감시 스크립트를 만들고, 호출 명령을 공통 로그에 기록한 뒤 종료 코드 93으로 실패하게 한다.
+- **이유:** 로컬 자료만으로 끝나야 하는 탐침이 다운로드나 에이전트 실행을 시도하면 실행하지 않고 흔적을 남기도록 한다.
+- **근거·가정:** 93은 감시 스크립트를 식별하기 위한 임의의 비정상 종료 코드이며 제품의 오류 코드 요구사항은 아니다. codex 감시기는 curl 감시기와 같은 내용으로 복사한다.
+- **검증과의 관계:** 후속 사례의 네트워크·에이전트 호출 로그 검사에 증거를 제공한다. PATH를 거치는 이 두 이름의 실행을 감시하며 절대 경로나 다른 도구의 호출까지 포괄하지는 않는다.
+
+┎ L51–L57
+
+- **동작:** gh는 항상 실패하는 오프라인 대역으로 준비하고, 모든 감시기를 실행 가능하게 만든 뒤 PATH 맨 앞에 넣으며 curl·codex 호출 기록의 위치를 지정한다.
+- **이유:** 협업 도구가 선택적으로 GitHub 상태를 조회하더라도 로컬 재현은 온라인 계정 상태와 무관하게 진행되도록 한다.
+- **근거·가정:** gh의 종료 코드 1은 선택적 원격 조회를 사용할 수 없는 상황을 흉내 낸다. curl·codex와 달리 gh 호출은 기록하지 않도록 설계되어 있으므로 로그가 비어 있다고 gh를 호출하지 않았다고 판정할 수 없다.
+- **검증과의 관계:** 44~50줄의 감시기를 활성화한다. 이 대역을 사용한 통과는 실제 GitHub 응답 처리나 인증 경로의 검증을 포함하지 않는다.
+
+┎ L58–L64
+
+- **동작:** 검증한 rc.1 아카이브를 임시 소스로 풀어 새 Git 저장소에 담고, 예시 사용자 정보로 모든 파일을 최초 커밋하되 준비 커밋에서는 hook을 실행하지 않는다.
+- **이유:** 외부 배포를 새로 받지 않고도 패키징 명령이 요구하는 커밋 가능한 소스를 마련하며, 테스트 준비 작업이 아직 연결하지 않은 제품 hook에 의존하지 않게 한다.
+- **근거·가정:** 후보의 코드 내용은 기준 rc.1에서 가져온다. Fixture와 fixture@example.invalid, 커밋 메시지는 로컬 테스트용 예시이고 실제 사용자의 신원을 쓰지 않는다. 압축 파일의 최상위 한 디렉터리는 공개 배포 형식에 맞추어 제거한다.
+- **검증과의 관계:** 팀 고정 버전 변경을 흉내 내기 위한 후보 준비다. 새 기능이나 다른 실행기 구현을 만들어 비교하는 테스트가 아니며, 여기서 hook을 생략한 사실은 후속 hook 동작 검증과 구분한다.
+
+┎ L65–L69
+
+- **동작:** 생성된 로컬 커밋을 읽고 fixture 버전 태그를 붙인 뒤, 검증한 실제 패키징 스크립트로 후보 manifest와 아카이브를 만들고 그 경로를 보관한다.
+- **이유:** 설치기가 실제로 읽을 수 있는 형식의 새 버전 자산을 만들어, 팀의 버전 고정값과 내 컴퓨터의 설치 상태가 어긋나는 상황을 재현한다.
+- **근거·가정:** 후보 커밋 해시는 로컬 생성 결과이므로 실행별로 달라질 수 있다. v1.0.0-rc.2-fixture 태그와 파일은 임시 저장소에만 존재하며 GitHub에 출시하거나 실제 rc.2의 품질을 주장하지 않는다.
+- **검증과의 관계:** 후속 버전 변경·sync 사례가 사용하는 로컬 후보 입력이다. 성공한 패키징만으로 후보 버전의 설치나 hook 실행 성공이 증명되지는 않는다.
+
+┎ L70–L74
+
+- **동작:** 사례마다 번호를 올려 독립 디렉터리를 만들고, 작은따옴표와 공백이 있는 앱 경로 및 공백이 있는 설치 저장소 경로를 사용한다.
+- **이유:** 한 사례의 연결 상태가 다음 사례로 새지 않게 하고, 실제 명령 경계에서 경로 인용 처리가 유지되는지도 함께 확인한다.
+- **근거·가정:** case 번호와 app&apos;s path, store with spaces는 테스트용 이름이다. 공백과 작은따옴표는 의도적인 경로 경계 입력이며 그 정확한 영문 이름이 제품 계약은 아니다.
+- **검증과의 관계:** 후속 같은 worktree·형제 worktree·버전 변경 사례의 공통 기반이다. 모든 가능한 특수문자나 파일시스템을 포괄하는 경로 테스트는 아니다.
+
+┎ L75–L77
+
+- **동작:** 검토 중인 저장소의 실제 하네스·협업 스크립트·hook·도구 설정을 복사하고, 복사된 캐시와 활동 claim·journal을 비운 뒤 예제용 디렉터리를 만든다.
+- **이유:** 문제가 발생하는 실제 연결 코드를 실행하면서도 개발자의 현재 협업 상태나 캐시가 예제의 동작을 결정하지 않게 한다.
+- **근거·가정:** 복사 대상은 이 템플릿의 기존 연결 경로에 필요한 파일이다. 삭제는 임시 앱의 복사본에만 적용하고 원본 저장소의 claim이나 journal을 수정하지 않는다.
+- **검증과의 관계:** 이후 설치형·구형 연결은 가짜 구현이 아니라 이 복사본의 제품 명령을 호출한다. 원본의 실제 운영 상태를 그대로 재현하는 것은 아니다.
+
+┎ L78–L85
+
+- **동작:** 임시 앱의 Test와 Lint 명령을 Node로 선언하고, 예제 spec·계획 파일과 값 42를 내보내는 최소 앱 소스를 작성한다.
+- **이유:** 외부 패키지 설치 없이 실행 횟수와 성공·실패를 관찰할 수 있는 앱을 만들어 하네스 연결 문제에 집중한다. 계획 파일에는 실제 앱 승인이 부여되지 않았다고 명시한다.
+- **근거·가정:** 이 Node 코드는 테스트 대상 앱의 예제이며 Bash 하네스의 구현 언어를 바꾸지 않는다. 42와 파일명·예제 문구는 관측 가능한 기준값을 위한 임의 선택이다. 사용자의 실제 spec.md나 승인 기준을 작성·수정하는 동작이 아니다.
+- **검증과의 관계:** 86~101줄의 Test·Lint 구현과 연결된다. 이 최소 예제만으로 실제 앱의 업무 요구사항이나 TDD 승인을 검증할 수는 없다.
+
+┎ L86–L91
+
+- **동작:** 예제 테스트 파일을 만들고 Node의 내장 테스트·엄격 비교·파일 도구를 불러와 baselineValue 사례를 등록한다.
+- **이유:** 추가 패키지에 의존하지 않고 앱 테스트 실행 여부와 결과를 기록할 수 있게 하며, 실제 Test 명령으로 실행할 최소 단위를 제공한다.
+- **근거·가정:** baselineValue와 suite.test.cjs는 예제 식별자다. 내장 모듈 사용은 로컬 재현을 단순화하기 위한 선택이며 제품 앱에 Node 테스트 프레임워크를 강제하는 계약은 아니다.
+- **검증과의 관계:** 이 범위는 사례를 등록할 뿐이고 실제 관측·판정은 다음 범위에서 수행한다.
+
+┎ L92–L97
+
+- **동작:** 테스트 실행 시 sobaya.json의 선택 버전을 읽어 suite 이벤트로 기록하고, 앱 값이 42인지와 실패 주입 변수가 1이 아닌지를 검사한 뒤 테스트 파일을 닫는다.
+- **이유:** 전체 테스트가 실제 호출됐는지와 그때 앱이 어떤 버전을 선택하고 있었는지 관측하고, 준비된 입력으로 테스트 실패 경로도 만들 수 있게 한다.
+- **근거·가정:** 42는 85줄과 대응하는 예제 기준값이다. DRAFT&#95;SUITE&#95;FAIL=1은 테스트 전용 실패 주입 약속이다. 이벤트의 버전은 설정에서 읽으므로 그 문자열만으로 실제 실행기 바이너리의 버전이 확인되는 것은 아니다.
+- **검증과의 관계:** 이 초안의 핵심은 연결·훅·pin과 sync 안내다. suite 명령과 실패 주입은 유효한 앱 계약을 위한 공통 지원이며, 이번 11개 사례에서 전체 suite 실행을 단언하지 않는다.
+
+┎ L98–L101
+
+- **동작:** Lint가 호출될 때마다 이벤트 파일에 lint 한 줄을 추가하고, 테스트용 실패 변수가 1이면 비정상 종료하는 최소 Lint 프로그램을 만든다.
+- **이유:** 이번 충돌의 핵심 증상인 Lint 중복 실행을 횟수로 드러내고, 필요할 때 Lint 실패가 연결 경로를 통해 전달되는지도 관찰할 수 있게 한다.
+- **근거·가정:** lint 문자열과 DRAFT&#95;LINT&#95;FAIL=1은 테스트의 관측·실패 주입 표식이다. 이 예제는 코드 스타일 검사기를 흉내 내므로 실제 코드 품질을 판정하지 않는다.
+- **검증과의 관계:** 후속 hook 검사의 이벤트 비교가 정확히 한 번 실행됐는지 판정할 근거를 제공한다. 파일을 작성했다는 사실만으로 중복 실행 방지가 증명되지는 않는다. 이번 초안은 Lint 횟수와 협업 선행 차단을 검사하며 DRAFT&#95;LINT&#95;FAIL 실패 주입 분기를 별도 사례로 실행하지 않는다.
+
+┎ L102–L102
+
+- **동작:** 예제 브랜치 feat/runtime의 소유자·시작일·활성 상태·목표를 가진 claim 파일을 작성한다.
+- **이유:** 협업 hook이 요구하는 유효한 작업 claim이 있는 정상 상태를 먼저 만들고, 뒤에서 claim을 제거했을 때 기존 협업 거절 규칙이 남아 있는지 비교할 수 있게 한다.
+- **근거·가정:** 브랜치·소유자·목표와 2026-10-06은 예제용 고정값이다. 날짜는 시간 경계 검증 입력이 아니며 실제 사용자의 claim이나 승인 기록을 대체하지 않는다.
+- **검증과의 관계:** 후속 설치형 hook 검사의 정상 경로를 준비한다. claim 파일의 존재만으로 변경 내용에 대한 사람의 승인이 부여되는 것은 아니다.
+
+┎ L103–L109
+
+- **동작:** 로컬 bare 원격과 main 브랜치의 앱 저장소를 만들고 hooks 디렉터리·예제 Git 신원·협업 사용자·온보딩 완료 설정을 준비한다.
+- **이유:** 실제 Git과 협업 스크립트를 실행하면서 계정 인증이나 초기 온보딩 대화가 이번 연결 회귀 검증을 가로막지 않도록 한다.
+- **근거·가정:** main과 fixture는 예제 브랜치·사용자 이름이고 온보딩 완료는 준비 상태를 직접 설정하는 대역이다. 실제 GitHub 원격이나 사용자 계정을 생성하지 않는다.
+- **검증과의 관계:** 형제 worktree와 팀 버전 변경을 재현할 로컬 저장소를 제공한다. 온보딩 과정과 원격 호스팅 서비스의 동작은 검증 범위 밖이다.
+
+┎ L110–L115
+
+- **동작:** worktree별 Git 설정을 활성화하고 기존 협업 hook 경로를 설정한 뒤, 로컬 origin에 준비 커밋을 push하고 feat/runtime 작업 브랜치를 만든다.
+- **이유:** 설치형 연결이 보존해야 할 기존 협업 hook을 먼저 둔 상태에서, 공통 Git 저장소와 worktree별 설정이 함께 작동하는 실제 조건을 만든다.
+- **근거·가정:** extensions.worktreeConfig와 .githooks는 이 템플릿의 연결 경로에 맞춘 준비다. 준비 커밋은 122~125줄의 helper를 사용하며 이 단계의 push는 파일 프로토콜의 임시 원격으로만 간다.
+- **검증과의 관계:** 후속 같은 저장소의 형제 worktree 사례와 버전 고정값 공유 사례의 기반이다. 이 초기 준비만으로 설치형 연결과 구형 연결의 공존이 안전하다고 판정하지 않는다.
+
+┎ L116–L121
+
+- **동작:** 앱의 실제 Git 디렉터리 아래 소바야 메타데이터 경로와 빈 이벤트 로그를 잡고, 고정된 공개 설치 스크립트에 rc.1 manifest·아카이브를 직접 전달하여 설치한 뒤 성공을 확인한다.
+- **이유:** 외부 다운로드 없이 실제 공개 설치 흐름으로 기준 실행기를 준비하고, 연결 전후 관측 위치를 각 사례에 맞춰 명확히 고정한다.
+- **근거·가정:** 설치 입력은 18~27줄에서 검증한 기준 배포물이다. 설치 저장소는 73줄의 임시 외부 경로를 사용한다. 메타데이터 경로는 문자열로 .git을 추정하지 않고 Git 조회 결과에서 얻는다.
+- **검증과의 관계:** fixture 준비를 마친다. 여기의 종료 코드 0 확인은 설치 명령 성공만 판정하며 앱 연결의 필수 파일은 132~137줄에서, 연결 지속성과 hook 동작은 후속 사례에서 별도로 검증한다.
+
+┎ L122–L125
+
+- **동작:** 임시 앱의 모든 변경을 stage하고 변경이 있을 때만 hook을 끈 명령 단위 설정으로 준비 커밋을 만든다.
+- **이유:** 필요한 초기 파일이나 팀의 핀 변경을 테스트 준비 단계에서 기록하되, 검증하려는 hook이 준비 자체를 막거나 실행 횟수 로그를 오염시키지 않게 한다.
+- **근거·가정:** fixture 커밋 메시지는 예제 식별용이다. core.hooksPath=/dev/null은 해당 준비 커밋 한 번에만 적용되는 우회이며 저장소의 영구 hook 설정 변경이나 실제 개발 절차의 권고가 아니다.
+- **검증과의 관계:** 실제 hook 성공·거절 검증은 이 helper와 별도로 수행된다. 이 helper로 커밋에 성공했다고 하네스의 검증을 통과했다고 주장할 수 없다.
+
+┎ L126–L131
+
+- **동작:** 임시 앱의 실제 설치형 어댑터 파일이 있는지 확인하고, 앱 디렉터리에서 전달받은 인자를 그대로 실행하며 서브셸의 종료 코드를 파일을 통해 회수한다.
+- **이유:** 가짜 어댑터로 원하는 결과를 만드는 대신 제품 진입점을 실제 앱 작업 디렉터리에서 호출하고, 성공과 예상된 거절을 같은 방식으로 관찰한다.
+- **근거·가정:** 어댑터가 없으면 NOT PROBED와 종료 코드 2로 구분한다. /bin/sh 실행은 이 제품 스크립트의 호출 경로이며 임시 rc 파일은 서브셸 변수 변경이 부모에 전달되지 않는 문제를 해결하기 위한 테스트 구현이다.
+- **검증과의 관계:** 38~43줄의 invoke와 결과 검사 도구를 재사용한다. 결과 수집만으로 attach나 check의 의미가 검증되는 것은 아니며 각 호출 뒤의 assertion이 이를 담당한다.
+
+┎ L132–L137
+
+- **동작:** 기준 버전과 임시 설치 저장소로 실제 attach를 실행하고, 종료 코드 0과 connection.json·sobaya.json·sobaya.lock의 파일 존재를 확인한 뒤 공통 준비 함수를 끝낸다.
+- **이유:** 설치형 연결이 전혀 만들어지지 않은 잘못된 준비 상태에서 구형 연결 충돌이나 버전 변경 사례를 검증하지 않도록 한다.
+- **근거·가정:** 세 파일은 이 설치형 연결이 만들어야 할 로컬 연결 메타데이터와 팀 버전 고정 입력이다. 존재 검사에는 일반 파일 여부를 뜻하는 -f를 사용하며 여기서는 내용·링크 여부·실행기 무결성까지 고정하지 않는다.
+- **검증과의 관계:** 후속 각 사례의 시작 조건을 확립한다. 설치형 연결의 유효성, hook 보존, 중복 Lint 여부는 뒤의 독립 검사에서 확인해야 한다.
+
+┎ L138–L150
+
+- **동작:** 경로의 존재 여부, 일반 파일 내용의 해시와 실행 가능 여부, 심링크 대상, 하위 디렉터리 목록을 기록한다.
+- **이유:** 실패하면서 파일을 만들거나 덮어쓰는 부작용을 내용·경로·실행 가능 여부로 비교하기 위해서다.
+- **근거·가정:** 보존 요구가 근거다. 이 fixture 경로에는 줄바꿈이 없으며 세부 권한 비트·소유자·타임스탬프까지 비교하지는 않는다.
+- **검증과의 관계:** 다음 연결 상태 스냅샷이 호출한다. 호출 전후 결과를 비교하므로 일시적 변경 후 완전 복원까지 검출하는 감시기는 아니다.
+
+┎ L151–L165
+
+- **동작:** 설치형 앱과 구형 명령 대상의 계약·계획·두 pin·구형 lock·협업 훅·worktree 설정·소바야 metadata·HEAD·인덱스를 기록하고, 공통 설정·훅 및 소바야 소스의 HEAD와 설치 부수 파일을 기록한다. 두 앱의 파일 경로 목록도 기록하여 남은 임시 설치 파일을 검출하되 Git 내부와 협업 캐시는 제외한다.
+- **이유:** 현재 앱에만 검사 범위를 제한하거나 소스의 setup·pull 뒤에 차단하는 구현을 놓치지 않기 위해서다.
+- **근거·가정:** 리뷰가 요구한 양쪽 연결과 source clone 보존이 근거다. 같은 checkout 사례에서는 동일 경로가 두 번 기록되지만 기대 결과는 같다.
+- **검증과의 관계:** 138~150줄의 스냅샷을 조합한다. 설치형 상태 파일도 metadata 전체에 포함되며, 모든 Git 객체나 모든 캐시 파일의 불변성을 주장하지 않는다.
+
+┎ L166–L170
+
+- **동작:** 설치형 check가 성공하고 JSON의 connected가 true인지 확인한다.
+- **이유:** 구형 명령을 거절했어도 기존 연결이 망가지는 구현을 잡기 위해서다.
+- **근거·가정:** 기존 check의 계약은 연결·전달 훅 일치다. 런타임 준비 상태나 사람의 테스트 승인을 뜻하지 않는다.
+- **검증과의 관계:** 혼합 연결 사례의 전후 대조와 버전 변경 사례에서 재사용하며, 실행 가능 여부는 별도 실제 훅 호출이 확인한다.
+
+┎ L171–L178
+
+- **동작:** 앱 예시 파일을 43으로 바꾸어 stage한 뒤 metadata에 기록된 설치형 전달 훅을 실제 실행하고 이벤트가 lint 한 줄뿐인지 비교한다.
+- **이유:** 협업 precommit은 stage된 변경이 있어야 규칙을 검사한다. 실제 전달 경로를 거쳐 Lint 누락과 중복 실행을 함께 잡는다.
+- **근거·가정:** 42와 43은 변화가 있는 stage를 만들기 위한 예시 값이다. 정확히 한 번의 Lint는 두 하네스의 중복 실행 방지 요구에서 나온다.
+- **검증과의 관계:** 앱 Lint는 앞서 보인 Node 이벤트 기록 fixture다. 이 호출은 commit 자체를 만들거나 전체 테스트 스위트를 실행하지 않는다.
+
+┎ L179–L187
+
+- **동작:** 현재 브랜치 claim을 잠시 치운 뒤 같은 훅을 실행하여 실패와 빈 이벤트를 요구하고, claim·stage·예시 파일을 원래대로 복원한다.
+- **이유:** 구형 연결 거절 이후에도 협업 규칙이 먼저 차단하고 Lint까지 진행하지 않는지 확인하기 위해서다.
+- **근거·가정:** claim 없는 편집은 차단한다는 소비자 계약이 근거다. 파일 이동과 reset·checkout은 새로 만든 임시 fixture에만 적용된다.
+- **검증과의 관계:** 정상 경로의 한 번 실행과 반대되는 실패 대조다. helper가 반환하면 다음 비교가 자체 stage 변경 때문에 실패하지 않게 한다.
+
+┎ L188–L200
+
+- **동작:** 고정된 소바야 소스를 별도 로컬 브랜치로 복제하고 로컬 bare origin을 연결한 뒤, 다른 clone에서 빈 커밋 하나를 push한다.
+- **이유:** sync·update가 차단 전에 pull하면 실제로 HEAD가 바뀌게 하여 늦은 사전 검사를 탐지한다.
+- **근거·가정:** 소바야 실행 코드는 지정된 공개 커밋 그대로다. 빈 커밋은 소스 동작을 바꾸지 않는 시험 자극이며 모든 remote는 임시 로컬 경로다.
+- **검증과의 관계:** 복제 직후 PIN을 확인하고 앞의 snapshot으로 HEAD·FETCH&#95;HEAD 변화를 비교한다. 설치기 대역이나 dirty 소스를 쓰지 않아 pull 생략으로 통과하지 않는다.
+
+┎ L201–L211
+
+- **동작:** 독립 앱 fixture를 만들고 형제 사례에서는 실제 collab worktree 명령으로 linked checkout을 만든 뒤, 그 브랜치의 claim을 준비한다.
+- **이유:** Git의 실제 common/worktree 구성을 사용하며 claim 부재 때문에 연결 충돌 검사 전에 실패하는 잘못된 RED를 막는다.
+- **근거·가정:** same만 하나의 checkout을 쓰고 두 형제 사례는 feat/sibling이라는 예시 브랜치를 쓴다. claim은 테스트 전제이며 제품이 자동 작성한다고 가정하지 않는다.
+- **검증과의 관계:** 기존 fixture의 feat/runtime claim을 형제 브랜치 이름으로 바꾸어 만든다. 제품 코드는 수정하지 않는다.
+
+┎ L212–L219
+
+- **동작:** 설치형 앱과 구형 명령 대상의 방향을 정한 뒤 attach하고, 설치형 metadata 위치에 유휴 상태 파일을 넣고 실제 common 디렉터리를 구한다.
+- **이유:** 현재 checkout, 기본→linked, linked→기본을 구분하여 어느 한 Git metadata 위치만 검사하는 구현을 막는다.
+- **근거·가정:** 상태의 calls=7과 review HEAD는 보존 관찰용 예시다. fixture:true로 구분한 임시 상태이며 실제 앱 승인이나 완료 리뷰가 아니다.
+- **검증과의 관계:** 형제 방향을 바꾸어도 이후 공통 단언을 그대로 쓴다. 상태 파일은 connection&#95;snapshot의 snapshot에 포함된다.
+
+┎ L220–L225
+
+- **동작:** 형제 대상에는 root pin과 자체 연결이 없고 공용 precommit도 없는지 확인한 뒤 source clone을 준비한다.
+- **이유:** 현재 디렉터리의 pin만 검사하거나 기존 사용자 훅 거절에 기대는 구현이 형제 연결 보호로 잘못 통과하지 않게 한다.
+- **근거·가정:** 리뷰에서 재현한 연결 순서를 분리하기 위한 시험 전제다. 존재 검사는 현재 fixture의 정상 파일을 대상으로 한다.
+- **검증과의 관계:** 공용 훅이 빈 상태에서 실제 설치형 연결만이 거절 근거가 되어야 한다. prepare&#95;source의 clean source 준비를 사용한다.
+
+┎ L226–L231
+
+- **동작:** 정상 설치형 check·훅을 먼저 확인하고 보호 상태를 저장한 다음, 명시적 소바야 경로와 다른 테스트 명령을 주어 구형 명령을 실행하고 결과와 후속 상태를 남긴다.
+- **이유:** 작동 중인 연결을 출발점으로 보장하고, attach가 거절 전에 Test 항목을 바꾸는 부작용도 드러내기 위해서다.
+- **근거·가정:** changed.test.cjs는 변경 시도를 만드는 예시 이름이다. 명시적 --sobaya는 경로 자동 탐색 실패를 충돌 차단으로 오인하지 않게 한다.
+- **검증과의 관계:** 실제 세 구형 명령을 각각 새 fixture에서 실행한다. sync·update는 현재 --test 값을 사용하지 않지만 같은 호출 형태로 비교한다.
+
+┎ L232–L239
+
+- **동작:** 구형 명령 실패, 충돌한 설치형 앱 경로와 ‘설치형’이라는 사유가 담긴 진단, 스냅샷 불변을 요구하고 설치형 check·훅을 다시 확인한다.
+- **이유:** 단순히 실패만 하는 구현 대신 사용자가 충돌 위치를 찾을 수 있고 기존 작업을 계속할 수 있는 차단인지 검증한다.
+- **근거·가정:** 실패 코드의 구체 숫자는 고정하지 않는다. 충돌 앱 경로 안내와 감시 대상 curl·codex 호출 없음은 이 초안의 검토 대상 기준이다.
+- **검증과의 관계:** 서로 다른 세 배치×세 명령에서 공통으로 적용된다. 정상·차단 훅 검증은 installed&#95;check와 exercise&#95;installed&#95;hook을 사용한다.
+
+┎ L240–L253
+
+- **동작:** 설치형 연결 없이 구형 상태 파일만 둔 앱에서 attach·sync·update가 성공하며 상태가 보존되고 설치형 pin·연결이 생기지 않는지 확인한다.
+- **이유:** 소바야 metadata 디렉터리가 있다는 이유만으로 구형 프로젝트 전체를 막는 과도한 보호를 방지한다.
+- **근거·가정:** 현재 이미 동작해야 하는 호환성 대조군이다. 최소 유휴 JSON은 존재·바이트 보존 관찰용으로 실제 승인 상태를 인증하지 않는다.
+- **검증과의 관계:** 새 결함의 RED 대상이 아니다. 기존 구형 7개 테스트와 함께 정상 구형 경로를 유지하는 근거가 된다. 설치 저장소의 rc.1 파일은 있어도 이 앱에는 설치형 연결·pin을 만들지 않는다.
+
+┎ L254–L266
+
+- **동작:** 설치형 pin을 main에 반영하고 기능 브랜치를 한 커밋 진행시킨 다음, 로컬 동료 clone에서 새 후보의 버전·commit·hash pin을 함께 갱신해 push한다.
+- **이유:** 파일을 직접 바꾸는 단축 경로 대신 협업 pulse가 동료 변경을 받아오는 상황을 만든다. 기능 커밋은 브랜치가 이미 병합됐다고 판정되는 것을 피한다.
+- **근거·가정:** rc.2-fixture는 공개 신규 버전이 아니라 rc.1 소스의 로컬 패키지다. 초기 fixture 커밋은 테스트 설정을 위해 hooksPath를 명령 범위에서 비활성화한다.
+- **검증과의 관계:** 실제 앱에서 승인 없이 bump하는 절차가 아니다. 앞의 패키징 도우미가 만든 manifest를 사용해 두 pin의 정합성을 유지한다.
+
+┎ L267–L279
+
+- **동작:** 연결 JSON과 전달 훅을 보관하고 실제 pulse 후 두 pin이 동료와 같으며 로컬 후보 runtime이 없는지 확인한다. 연결 check의 새 버전과 connected를 확인하고 digest 출력을 저장한다. 병합 뒤 HEAD에 기능·동료 커밋이 모두 포함되고 작업 트리가 깨끗한지도 확인한다.
+- **이유:** 팀 설정 변경을 받아왔다는 사실과 개인 실행기 설치를 구분하여 안내 누락 상황을 만든다.
+- **근거·가정:** pulse는 협업 Git 병합을 수행하고 개인 실행기를 자동 설치하지 않는다는 경계가 근거다. check의 connected 의미는 바꾸지 않는다.
+- **검증과의 관계:** pin 비교는 단순 버전 문자열보다 강하게 두 문서 전체를 대조한다. 이후 digest 안내를 판단할 출력을 확보한다.
+
+┎ L280–L286
+
+- **동작:** digest가 metadata·훅·승인·runtime을 바꾸지 않았는지 확인하고, 누락된 후보로 실제 훅이 실패하는 것을 본 뒤 로컬 archive를 지정해 명시적으로 sync한다.
+- **이유:** 안내만 보완하면서 자동 설치·자동 승인까지 수행하지 않는지 확인하고, 왜 sync가 필요한지도 실행 결과로 보여준다.
+- **근거·가정:** selected runtime is not installed는 고정된 공개 rc.1 실행기의 누락 오류다. archive를 명시해 외부 릴리스 조회가 필요하지 않다.
+- **검증과의 관계:** 후보가 누락됐는데 실제 hook이 성공하면 잘못된 전제이므로 테스트가 실패한다. check 성공과 준비 상태를 혼동하지 않는다.
+
+┎ L287–L293
+
+- **동작:** sync 후 정상·차단 훅을 다시 실행하고 pin·연결·전달 훅 보존, 승인·외부 호출 부재를 확인한 뒤 이전 digest에 후보 버전과 sync 명령 안내가 있는지 요구한다.
+- **이유:** 복구 경로의 실제 동작을 확인한 뒤 안내 누락을 RED 원인으로 한정한다.
+- **근거·가정:** 구체 안내 문장 전체는 고정하지 않고 버전과 실행할 명령 부분만 확인한다. 이 초안은 digest 안내를 요구하며 pulse 출력의 문구 자체는 고정하지 않는다.
+- **검증과의 관계:** 현재 제품에서 마지막 sync 안내 단언만 실패해야 유효한 행동 RED다. sync는 설치를 복구하며 팀 pin 변경이나 재승인 수단이 아니다.
+
+┎ L294–L308
+
+- **동작:** 자식 shell에 공통 변수와 함수를 전달해 11개 사례를 독립 실행하고, 선택한 사례의 통과·실패를 집계하며 증거 디렉터리를 구분해 보관한다.
+- **이유:** 한 실패가 나머지 배치를 숨기지 않게 하면서 Bash의 if 문맥이 함수 내부 errexit를 끄는 문제를 피한다.
+- **근거·가정:** 9개 혼합 거절, 1개 구형 호환성, 1개 sync 안내 사례다. all 또는 정확한 식별자로 실행하며 알 수 없는 이름은 실패한다.
+- **검증과의 관계:** 테스트 결과 집계는 승인·구현 완료를 뜻하지 않는다. fixture마다 개인 저장소·Git clone을 새로 만들고 종료 시 보관 옵션에 따라 정리한다.
+
+
+구간·해시 검사는 설명의 정확성, 요구사항 충족, 검토 목록에서 빠진 파일을 증명하지 않습니다. 이 보기는 승인이나 테스트 실행 결과가 아닙니다.

@@ -16,10 +16,11 @@ description: 세션을 마무리한다. 저널에 이벤트(동료 에이전트�
    - `## 남은 것`: 이어받는 사람용. 막힌 곳, 실패한 시도.
 2. **claim.** `status` 갱신: 계속하면 `active`, 한동안 안 하면 `paused`, PR 올리면 `done`.
 3. **sobaya plan 보관** (루트에 `spec.md`·`failed-test.md` 가 있고 PR 을 올릴 때만). 순서가 중요하다.
-   1. `loop.sh` 가 gate 와 review 까지 끝냈는지 `status.sh` 로 확인 (`review.head` 가 현재 HEAD).
+   1. 선택된 Sobaya 런타임의 loop가 gate와 review까지 끝냈는지 status로 확인한다 (`review.head`가 현재 HEAD). 설치형은 개인 저장소의 공개 CLI에 `--root`, `--install-root`, `--app`을 명시한다. check의 연결 상태를 완료 검증으로 대신하지 않는다. 명령은 [설치형 안내](../../../docs/sobaya-installed.md)를 따른다.
    2. `mkdir -p collab/journal/plans/YYYY-MM-DD-<나>-<slug> && git mv spec.md failed-test.md collab/journal/plans/YYYY-MM-DD-<나>-<slug>/`
    3. 이 커밋 뒤에는 **이 브랜치에서 sobaya 명령을 다시 치지 않는다** (plan 이 없어 실패한다). 더 구현할 게 생기면 `git mv` 를 되돌리고 승인부터 다시.
-   이유: 두 브랜치의 plan 이 같은 루트 경로에 있으면 머지에서 충돌하고, 상대의 sobaya 승인 기준이 깨진다. `check` 가 main 유입을 막는다.
+   이유: 두 브랜치의 plan이 같은 루트 경로에 있으면 머지에서 충돌하고 상대의 Sobaya 승인 기준이 깨진다. 협업 `check`가 main 유입을 막는다. 설치형 root `sobaya.json`·`sobaya.lock`은 팀 버전 파일이므로 함께 보관하지 않는다.
+   설치형 bump PR은 런타임 변경으로 두 root pin을 남기며 기존 claim·저널 규칙을 유지한다. 후보 검증의 성공·실패와 실제 버전을 적고 자동 승인이나 진행 상태의 버전 간 재개를 주장하지 않는다.
 4. **검사.** `scripts/collab.sh check`. 위반이 있으면 고친다. "다른 열린 브랜치와 같은 파일" 이 나오면 사용자에게 알린다.
 5. **커밋·push.** `git add collab/ && git commit -m "chore(collab): handoff <branch>" && git push`.
    PR 은 `scripts/collab.sh pr-body > /tmp/pr.md` 로 본문을 만들고 `gh pr create --title "<claim goal>" --body-file /tmp/pr.md`. 제목이 곧 main 의 squash 커밋 메시지다. 사람이 채울 칸은 "검증" 하나.
