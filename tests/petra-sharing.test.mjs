@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'petra-sharing-'));
 const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 'fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid', GIT_COMMITTER_NAME: 'fixture', GIT_COMMITTER_EMAIL: 'fixture@example.invalid' };
-for (const k of Object.keys(env)) if (/^GIT_(DIR|WORK_TREE|COMMON_DIR|INDEX_FILE|PREFIX|CONFIG_COUNT|CONFIG_PARAMETERS|CONFIG_KEY_\d+|CONFIG_VALUE_\d+)$/.test(k) || k === 'NODE_TEST_CONTEXT') delete env[k];
+for (const k of Object.keys(env)) if (/^GIT_(DIR|WORK_TREE|COMMON_DIR|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|PREFIX|CONFIG|CONFIG_COUNT|CONFIG_PARAMETERS|CONFIG_KEY_\d+|CONFIG_VALUE_\d+)$/.test(k) || /^(COLLAB_|CLAUDE_PROJECT_DIR$|PETRA_PROJECT_ROOT$|RUNTIME_ROOT$|GITHUB_HEAD_REF$|NODE_TEST_CONTEXT$)/.test(k)) delete env[k];
 const run = (cwd, command, ...args) => execFileSync(command, args, { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const git = (cwd, ...args) => run(cwd, 'git', ...args);
 const cli = (cwd, ...args) => run(cwd, 'sh', '.petra/bin/petra', ...args);

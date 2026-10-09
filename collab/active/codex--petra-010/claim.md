@@ -2,9 +2,9 @@
 branch: codex/petra-010
 owner: solp
 started: 2026-10-10
-status: active
+status: done
 goal: PETRA 0.1.0의 작업 중 공유와 설치 수명주기 및 소비자 협업 흐름을 완성한다
-next: scripts/collab.sh harness/hooks/lib.sh harness/install-petra.mjs
+next: 팀 리뷰와 main 병합 후 v0.1.0 릴리스
 ---
 
 ## 메모

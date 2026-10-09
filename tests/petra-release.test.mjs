@@ -14,7 +14,9 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'petra-release-tests-')), root
 fs.mkdirSync(root);
 for (const name of ['harness', 'bin', 'scripts/collab.sh', '.githooks', 'collab/templates']) fs.cpSync(path.join(source, name), path.join(root, name), { recursive: true });
 const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
-for (const key of Object.keys(env)) if (/^GIT_(DIR|WORK_TREE|COMMON_DIR|INDEX_FILE|PREFIX|CONFIG_COUNT|CONFIG_PARAMETERS|CONFIG_KEY_\d+|CONFIG_VALUE_\d+)$/.test(key)) delete env[key];
+for (const key of Object.keys(env)) if (/^GIT_(DIR|WORK_TREE|COMMON_DIR|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|PREFIX|CONFIG|CONFIG_COUNT|CONFIG_PARAMETERS|CONFIG_KEY_\d+|CONFIG_VALUE_\d+)$/.test(key) || /^(COLLAB_|CLAUDE_PROJECT_DIR$|PETRA_PROJECT_ROOT$|RUNTIME_ROOT$|GITHUB_HEAD_REF$)/.test(key)) { delete env[key]; delete process.env[key]; }
+delete env.NODE_TEST_CONTEXT;
+Object.assign(process.env, env);
 const git = (...args) => execFileSync('git', ['-C', root, ...args], { env, encoding: 'utf8', stdio: 'pipe' }).trim();
 git('init', '-q', '-b', 'main'); git('config', 'user.name', 'fixture'); git('config', 'user.email', 'fixture@example.invalid'); git('add', '-A'); git('commit', '-qm', 'source');
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
