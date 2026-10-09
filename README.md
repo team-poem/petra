@@ -37,17 +37,19 @@ collab/
 harness/
   hooks/                  guard · session-start · post-edit · stop · lib — 모든 판정의 본체
   config.sh               PROTECTED_BRANCHES · HOTSPOTS · PULSE_* · AUTO_REBASE · SYNC_MODE · SOBAYA_ROOT
-  attach-sobaya.sh        sobaya 결합 attach|sync|update|check · sobaya.lock (팀의 sobaya 커밋)
-  sobaya/                 루트 세션용 훅 어댑터, sobaya 에 보내는 제안
+  attach-sobaya.sh         기존 소스 클론 연결 · harness/sobaya.lock
+  sobaya-installed.sh      선택적 설치형 연결 attach|sync|bump|check
+  sobaya/                  연결 검사 · 구형 루트 세션 어댑터 · 연동 규칙
   init.sh · join.sh · install-into.sh · github-policy.sh · VERSION · CHANGELOG.md
-scripts/collab.sh         유일한 CLI. 훅·git 훅·CI·다른 하네스가 전부 이것만 부른다
+scripts/collab.sh         협업 CLI. 훅·git 훅·CI·다른 하네스의 협업 판정 진입점
 .agents/skills/           onboard · start-work · handoff (.claude/skills 는 심링크)
 .claude/settings.json     Claude Code 훅 배선 → harness/hooks
 .codex/hooks.json         Codex 훅 배선 → 같은 harness/hooks
 .githooks/                pre-commit(guard 와 같은 판정) · pre-push(저널 경고). core.hooksPath 로 켬. 도구 무관
 .github/                  PR 템플릿 · CI (tests · check · main 에서 prune · 주간 sobaya upstream 확인)
-tests/                    hooks.sh · loop.sh(클론 둘) · sobaya.sh(개발 루프 상태 모의)
-docs/guide.md             사람용 안내
+tests/                    hooks.sh · loop.sh · sobaya.sh · sobaya-installed.sh(공개 설치본)
+docs/guide.md             사람용 협업 안내
+docs/sobaya-installed.md  설치형 Sobaya의 설치·연결·동기화·bump 절차
 ```
 
 ## 명령 — `scripts/collab.sh`
@@ -120,7 +122,7 @@ start-work ──▶ (작업 · pulse · 커밋마다 wip) ──▶ handoff ─
                   main 을 merge 로 따라잡기         check · push
 ```
 
-- **start-work**: 보호 브랜치면 `git switch -c <type>/<slug> origin/main`. `collab/active/<slug>/claim.md` 작성, 첫 커밋으로 push. sobaya 를 쓰면 `install.sh` 로 이 브랜치의 `spec.md`·`failed-test.md` 생성.
+- **start-work**: 보호 브랜치면 `git switch -c <type>/<slug> origin/main`. `collab/active/<slug>/claim.md` 작성, 첫 커밋으로 push. sobaya 를 쓰면 연결 방식에 따라 기능 명세·테스트 초안을 준비한다. 설치형 `attach`는 문서를 생성하지 않는다.
 - **중간**: 알림에 반응. 허브 파일 차단이면 사용자에게 알린다. 결정은 저널 `rule` 이벤트로.
 - **main 따라잡기 보류 후**: sobaya 작업이 끝나도 미커밋 파일이 남으면 커밋 안내를 새로 보낸다. 커밋 후 다음 pulse 는 main 에 새 push 가 없어도 따라잡기를 재개한다. 충돌 시 원래 작업 상태로 되돌리고 알린다.
 - **handoff**: 저널(이벤트 + 남은 것) → claim status → (sobaya) `gate`·`review` 후 plan 을 `collab/journal/plans/` 로 이동 → `check` → push.
@@ -129,8 +131,10 @@ start-work ──▶ (작업 · pulse · 커밋마다 wip) ──▶ handoff ─
 ## 다른 하네스와의 접점
 
 <a id="sobaya"></a>
-- **sobaya (개발 하네스)**: 이 리포는 `<sobaya>/apps/<이름>` 에 산다. `attach-sobaya.sh attach` 가 앱 계약(AGENTS.md `- Test:`), sobaya 의 `install.sh`, 루트 세션용 어댑터, `harness/sobaya.lock` 을 처리한다. 승인 브랜치는 merge 로 따라잡음. sobaya 는 바꾸지 않는다 (amazon 결정, sobaya#4). 맞춤 규칙은 `harness/sobaya/RULES.md`.
-- **sobaya 버전 동기화**: `harness/sobaya.lock` 이 팀 기준. digest 가 클론과 다르면 `sync` 를 권하고, 주간 CI 가 upstream 이 앞서면 이슈. 올릴 때 `update` 후 lock 커밋.
+- **sobaya (개발 하네스)**: 사람 소유 명세·승인된 테스트의 구현과 검증을 담당한다. Poem은 기존 협업 규칙을 유지하며 워커를 `scripts/collab.sh run -- …`으로 감싼다. 맞춤은 소비자 쪽에서 처리한다 ([연동 규칙](harness/sobaya/RULES.md)).
+- **선택적 설치형 연결**: 기존 프로젝트 위치를 유지하고 외부 개인 저장소에 공개 런타임을 설치한다. `harness/sobaya-installed.sh attach|sync|bump|check`를 사용하며 루트 `sobaya.json`·`sobaya.lock`이 팀 버전이다. `attach`는 명세·초안·승인을 만들지 않는다. 준비 설정과 명령은 [설치형 안내](docs/sobaya-installed.md)를 따른다. 설치형 유지보수 테스트의 v3 교체본은 2026-10-07 사람의 승인을 받아 적용했다.
+- **기존 소스 클론 연결**: `<sobaya>/apps/<이름>`에서 기존 `attach-sobaya.sh attach|sync|update|check`와 `harness/sobaya.lock`을 유지한다. 주간 upstream 알림도 이 방식의 기능이다. 설치형과 구형 lock을 함께 두지 않으며 자동 이전하지 않는다.
+- **후속 설치형 업데이트**: 검토한 정확한 후보로 `bump`를 실행하고 두 root pin의 변경을 PR로 검토한다. 팀원은 `sync`한다. claim·저널 규칙은 그대로이고 설치형 주간 릴리스 알림은 후속 범위다.
 - **아우터 루프 (CI)**: `check` 의 "다른 열린 브랜치와 같은 파일", `digest --json` 의 `overlaps`. 자동 병합 순서는 그때.
 - **다른 도구**: `collab.sh guard <path>` 로 같은 판정, `digest --json` 으로 같은 현황. 파일 위치로 리포 루트를 찾으므로 워크스페이스 루트에서 앱 파일을 건드려도 그 앱의 규칙이 걸린다.
 
@@ -140,9 +144,13 @@ start-work ──▶ (작업 · pulse · 커밋마다 wip) ──▶ handoff ─
 sh tests/hooks.sh    # 훅 판정 · Bash 감시 · 설정 일관성(Claude≡Codex) · git pre-commit
 sh tests/loop.sh     # bare 원격에 클론 둘: 서로의 이벤트·질문·wip 겹침·자동 따라잡기·충돌 abort
 sh tests/sobaya.sh   # 가짜 sobaya 루트: 어댑터 라우팅 · cwd 경로 · merge 모드 · lock · plan 규칙
+
+export SOBAYA_TEST_ASSETS="/absolute/path/to/verified-rc1-assets"
+export SOBAYA_TEST_SOURCE="/absolute/path/to/sobaya-source-containing-the-public-commit"
+/bin/bash tests/sobaya-installed.sh all
 ```
 
-훅을 고치면 셋 다 돌리고 `harness/CHANGELOG.md` 에 한 줄. 새 규칙에는 테스트를 붙인다.
+하네스를 고치면 기존 세 스위트와 설치형 아홉 항목을 검증하고 `harness/CHANGELOG.md`에 남긴다. 공개 자산 확보, support 확인과 승인된 전체 스위트의 구분은 [설치형 검증 절](docs/sobaya-installed.md#8-템플릿-유지보수-검증)을 따른다. 테스트 입력을 바꿀 때는 사람이 정확한 교체본을 승인해야 한다.
 
 ## 시작 — 첫 세션은 온보딩
 
@@ -151,7 +159,7 @@ sh tests/sobaya.sh   # 가짜 sobaya 루트: 어댑터 라우팅 · cwd 경로 �
 | state | 뜻 | 흐름 |
 |---|---|---|
 | `setup` | 플레이스홀더가 남아 있음 (프로젝트 미초기화) | 메뉴: 이 폴더를 프로젝트로 초기화 / 기존 GitHub 프로젝트에 붙이기(`install-into.sh`) / 새 프로젝트 만들기(`gh repo create --template`) / 먼저 5분 설명 |
-| `join` | 프로젝트는 준비됨, 이 사람의 설정만 없음 (핸들·git 훅·sobaya) | 핸들만 묻고 `join.sh` |
+| `join` | 프로젝트는 준비됨, 이 사람의 설정만 없음 (핸들·git 훅·sobaya) | `join.sh`; 설치형 pin이 있으면 명시적 개인 저장소로 sync 안내 |
 | `ready` | 둘 다 됨 | 협업 현황(digest) |
 
 훅이 없는 환경: `sh harness/init.sh <이름> <핸들>` (만드는 사람) 또는 `sh harness/join.sh <핸들>` (합류하는 사람). 템플릿 자체를 개발할 때는 `git config collab.onboarded true` 로 온보딩을 건너뛴다.

@@ -69,7 +69,7 @@ case "$cmd" in
 state)
   # 리터럴을 쪼개 둔다 — init.sh 의 치환이 이 코드까지 바꾸면 안 되니까
   ob='{'; cb='}'; ph=0; grep -q "$ob${ob}PROJECT_NAME$cb$cb\|$ob${ob}OWNER$cb$cb" AGENTS.md 2>/dev/null && ph=1
-  handle="$(g config collab.me 2>/dev/null || true)"; hooks="$( [ "$(g config core.hooksPath 2>/dev/null)" = .githooks ] && echo on || echo off)"
+  handle="$(g config collab.me 2>/dev/null || true)"; hooks="$(collab_hooks_on && echo on || echo off)"
   remote="$(g remote get-url origin 2>/dev/null || true)"; sr="$(sobaya_root 2>/dev/null || true)"; lk="$(sobaya_lock)"
   ghok="$(command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && echo yes || echo no)"
   testcmd="$(sed -n 's/^- Test:[[:space:]]*//p' AGENTS.md 2>/dev/null | head -n1)"
@@ -129,7 +129,7 @@ digest)
     printf ']}\n'
   else
     echo "# 협업 현황 (자동 주입) · 나: @$ME · 브랜치: ${BR:-?}${fetch_note:+ · $fetch_note}"
-    [ "$(g config --get core.hooksPath 2>/dev/null)" = ".githooks" ] || echo "! git 훅이 꺼져 있습니다 → git config core.hooksPath .githooks (커밋·push 검사가 도구와 무관하게 걸린다)"
+    collab_hooks_on || echo "! git 훅이 꺼져 있거나 연결이 충돌합니다 → 설치형 연결은 sobaya-installed.sh check 로 확인하고, 일반 연결은 harness/join.sh 로 준비하세요."
     mr="$(branch_merged_reason "$BR" 2>/dev/null)" && echo "! 이 브랜치는 이미 머지됐습니다 ($mr). 여기 더 커밋하지 말고 새 브랜치를 파세요 (push 는 pre-push 가 막습니다)."
     echo; echo "## 나에게 온 질문·메시지 (답은 내 저널 이벤트에 'reply @상대' 로)"
     if [ -s "$A" ]; then while IFS="$TAB" read -r id b o j txt; do echo "- @$o ($b): $txt"; done < "$A"; else echo "- 없음"; fi
@@ -148,7 +148,16 @@ digest)
         [ "$unc" != "-" ] && echo "  지금 편집 중 ($(fmt_age "$age")): $unc"
         [ "$com" != "-" ] && echo "  브랜치에 커밋됨(미머지): $com"
         [ "$nxt" != "-" ] && echo "  다음에 만질 것: $nxt"; done < "$O"; else echo "- 없음"; fi
-    if sr="$(sobaya_root)"; then lk="$(sobaya_lock)"; hd="$(git -C "$sr" rev-parse --short HEAD 2>/dev/null)"
+    if [ -e "$ROOT/sobaya.json" ] || [ -e "$ROOT/sobaya.lock" ]; then
+      echo; echo "## 개발 하네스 (sobaya 설치형)"
+      version="$(jq -r '.runtime.version // "invalid"' "$ROOT/sobaya.json" 2>/dev/null || echo invalid)"
+      if sobaya_connection_status >/dev/null 2>&1; then
+        echo "- sobaya $version · 이 worktree의 설치형 연결 확인$(sobaya_approved && echo ' · 승인 상태 있음(main 따라잡기는 merge)')"
+        echo "  연결 확인은 선택 버전의 설치 준비 검사가 아닙니다. 팀 pin이 바뀌었다면 sh harness/sobaya-installed.sh sync --install-root STORE 로 이 버전을 준비하세요."
+      else
+        echo "- sobaya $version · 개인 저장소로 sobaya-installed.sh sync --install-root STORE 후, 기능 명세를 준비해 attach 하세요. 기존 연결이 있으면 check 로 충돌부터 확인하세요."
+      fi
+    elif sr="$(sobaya_root)"; then lk="$(sobaya_lock)"; hd="$(git -C "$sr" rev-parse --short HEAD 2>/dev/null)"
       echo; echo "## 개발 하네스 (sobaya)"
       if [ -z "$lk" ]; then echo "- sobaya 워크스페이스 감지($sr). 아직 붙이지 않음 → sh harness/attach-sobaya.sh attach"
       elif [ "$(git -C "$sr" rev-parse HEAD 2>/dev/null)" != "$lk" ]; then echo "- 내 sobaya($hd)가 팀이 검증한 버전(${lk%"${lk#???????}"})과 다릅니다 → sh harness/attach-sobaya.sh sync"
@@ -275,10 +284,22 @@ run)
 worktree)
   b="${1:-}"; [ -n "$b" ] || { echo "사용: collab.sh worktree <branch>"; exit 1; }
   [ -n "$MAIN" ] || { echo "origin/main 이 없습니다"; exit 1; }
+  worktree_config="$(g config --bool extensions.worktreeConfig 2>/dev/null || true)"
+  if [ "$worktree_config" != true ]; then
+    # 별도 이관이 필요한 Git 설정이나 기존 연결은 자동으로 scope를 바꾸지 않는다.
+    if [ -n "$(g config --local core.worktree 2>/dev/null)" ] ||
+       [ "$(g config --local --bool core.bare 2>/dev/null)" = true ] ||
+       [ -e "$(g rev-parse --absolute-git-dir)/sobaya/connection.json" ]; then
+      echo '기존 설정·연결을 확인하고 extensions.worktreeConfig를 먼저 준비하세요.' >&2; exit 1
+    fi
+    g config extensions.worktreeConfig true || exit 1
+  fi
   dir="$(dirname "$ROOT")/$(basename "$ROOT")-$(branch_slug "$b")"
   if sobaya_approved; then echo "이 클론에 sobaya 승인 상태가 있어 새 브랜치는 워크트리로 엽니다: $dir"; else echo "워크트리로 엽니다: $dir"; fi
   g worktree add -q "$dir" -b "$b" "$MAIN" || exit 1
-  git -C "$dir" config collab.me "$ME" >/dev/null 2>&1; git -C "$dir" config core.hooksPath .githooks >/dev/null 2>&1
+  git -C "$dir" config collab.me "$ME" >/dev/null 2>&1
+  # 연결된 기존 worktree의 전달 훅은 공유 설정으로 덮어쓰지 않는다.
+  git -C "$dir" config --worktree core.hooksPath .githooks || exit 1
   echo "다음: cd $dir 에서 세션을 열고 start-work 를 이어서 (claim 작성·push). sobaya 는 그 디렉토리를 앱으로 지정해 실행."; exit 0 ;;
 guard)
   if [ "${1:-}" = "--allow" ]; then echo "$2" >> "$CACHE/allow"; echo "이 세션에서 $2 허용"; exit 0; fi

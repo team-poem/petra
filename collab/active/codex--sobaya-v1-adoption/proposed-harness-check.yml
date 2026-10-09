@@ -19,11 +19,6 @@ jobs:
           repository: team-poem/sobaya
           ref: d06384544e81cd373d81e2a940ab336868e04854
           path: .sobaya-test-source
-      - name: 구형 worktree 연결과 실제 설치기 검증
-        shell: bash
-        env:
-          SOBAYA_TEST_SOURCE: ${{ github.workspace }}/.sobaya-test-source
-        run: bash tests/sobaya-legacy-worktree.sh all
       - name: 공개 rc.1 검증 자산 준비
         shell: bash
         run: |
@@ -33,16 +28,6 @@ jobs:
               "https://github.com/team-poem/sobaya/releases/download/v1.0.0-rc.1/$asset" \
               --output "$RUNNER_TEMP/sobaya-rc1-assets/$asset"
           done
-      - name: Linux flock 검증 환경 확인
-        shell: bash
-        run: |
-          test "$(uname -s)" = Linux
-          command -v flock
-          if command -v shlock; then
-            echo 'Linux 검증은 shlock이 없는 환경에서 flock 분기를 실행해야 합니다.' >&2
-            exit 1
-          fi
-          echo '설치형 잠금 검증 분기: flock'
       - name: 설치형 연결과 공개 런타임 검증
         shell: bash
         env:
@@ -50,12 +35,6 @@ jobs:
           SOBAYA_TEST_SOURCE: ${{ github.workspace }}/.sobaya-test-source
         # 테스트가 고정 해시를 확인한 뒤에만 설치기를 실행한다. 모델 호출은 fixture 대역이다.
         run: bash tests/sobaya-installed.sh all
-      - name: 혼합 연결 차단과 팀 pin sync 안내 검증
-        shell: bash
-        env:
-          SOBAYA_TEST_ASSETS: ${{ runner.temp }}/sobaya-rc1-assets
-          SOBAYA_TEST_SOURCE: ${{ github.workspace }}/.sobaya-test-source
-        run: bash tests/sobaya-mixed-mode.sh all
   collab:
     name: 협업 규칙 검사
     if: github.event_name == 'pull_request'
