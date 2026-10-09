@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { planLifecycle, applyLifecycle } from '../harness/lifecycle-petra.mjs';
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const assets = process.env.SOBAYA_TEST_ASSETS;
@@ -193,5 +194,23 @@ test('PETRA 설치본과 공개 Sobaya 런타임의 소비자 흐름', { timeout
     assert.match(petra(app, 'pr-body'), /src\/add.cjs/);
     petra(app, 'verify');
     assert.equal(fs.existsSync(env.PETRA_NETWORK_LOG), false, 'unexpected network or model call');
+  });
+  await t.test('PETRA 업데이트는 실제 Sobaya 전달 훅·승인·팀 pin·HEAD를 보존한다', () => {
+    const evidence = Object.fromEntries(['state.json', 'connection.json', 'original-hooks.json'].map((name) => [name, read(path.join(meta, name))]));
+    const pins = ['sobaya.json', 'sobaya.lock'].map((name) => read(path.join(app, name)));
+    const head = git(app, 'rev-parse', 'HEAD'), hooks = git(app, 'config', 'core.hooksPath');
+    const pkg = path.join(root, 'next-petra'); run(source, 'sh', 'bin/petra', 'pack', pkg);
+    fs.appendFileSync(path.join(pkg, '.petra/README.md'), '\nfixture upgrade\n');
+    const manifest = json(path.join(pkg, '.petra/manifest.json'));
+    manifest.version = '0.1.1';
+    manifest.managed.find((entry) => entry.path === '.petra/README.md').sha256 = createHash('sha256').update(read(path.join(pkg, '.petra/README.md'))).digest('hex');
+    write(path.join(pkg, '.petra/manifest.json'), JSON.stringify(manifest));
+    const plan = planLifecycle(pkg, app); applyLifecycle(plan, plan.plan_id);
+    assert.match(read(path.join(app, '.petra/README.md')), /fixture upgrade/);
+    for (const [name, bytes] of Object.entries(evidence)) assert.equal(read(path.join(meta, name)), bytes);
+    assert.deepEqual(['sobaya.json', 'sobaya.lock'].map((name) => read(path.join(app, name))), pins);
+    assert.equal(git(app, 'rev-parse', 'HEAD'), head); assert.equal(git(app, 'config', 'core.hooksPath'), hooks);
+    assert.equal(JSON.parse(petra(app, 'sobaya', 'check', '--install-root', store)).connected, true);
+    petra(app, 'verify');
   });
 });
