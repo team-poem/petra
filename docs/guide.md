@@ -1,6 +1,6 @@
 # 이게 어떻게 굴러가나 — 사람을 위한 안내
 
-> 에이전트용 문서는 [README.md](../README.md) 와 [AGENTS.md](../AGENTS.md). 이 문서는 사람이 그림으로 이해하기 위한 것이다.
+> 프로젝트 소개는 [README.md](../README.md), 에이전트 계약은 [AGENTS.md](../AGENTS.md), 세부 동작은 [구조와 협업 프로토콜](reference.md). 이 문서는 사람이 상황별로 이해하기 위한 것이다.
 
 팀 포엠에서 각자 AI 에이전트를 데리고 **한 리포에서 동시에** 일하기 위한 하네스. 지금은 solp·amazon 둘.
 

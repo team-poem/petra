@@ -1,5 +1,9 @@
 # 설치형 Sobaya 연결하기
 
+새 `.petra/` 구조를 사용한다면 [PETRA 설치본 연결 안내](petra-sobaya.md)부터 읽는다.
+아래의 `sh harness/sobaya-installed.sh`는 새 구조에서 `sh .petra/bin/petra sobaya`,
+`sh scripts/collab.sh`는 `sh .petra/bin/petra`에 대응한다. 신뢰한 공개 자산·승인·버전 검토 기준은 동일하다.
+
 이 문서는 기존 프로젝트와 이 템플릿으로 만든 프로젝트에 **Sobaya v1을 선택적으로 연결하는 절차**다. Sobaya는 사람이 승인한 테스트의 구현·검증을, Poem은 작업 선언·충돌 확인·인수인계를 담당한다. 설치형 유지보수 테스트의 v3 교체본은 2026-10-07 사람의 승인을 받아 적용했다. 실제 소비자 앱의 명세와 테스트는 각 프로젝트에서 별도로 검토·승인한다.
 
 ## 연결 방식과 파일

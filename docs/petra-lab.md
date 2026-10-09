@@ -62,7 +62,21 @@ CI는 항상 깨끗한 실행 공간에서 검사한다. 사람이 매번 프로
 실제 Codex·Claude 세션은 위 두 폴더에서 진행하며 각 계정의 접근 권한이 필요하다. 기존 실행 결과와 제한은 [첫 배치 기록](petra-first-slice-testing.md)에 있다.
 
 이 실험실은 PETRA 개발용이다. 소비 프로젝트에 설치되는 훅·스킬 수는 늘어나지 않는다.
-최초 설치는 이 환경에서 검사한다. 앞으로 이전·업데이트·Sobaya 연결도 같은 쇼핑몰과 실행 명령에 시나리오를 추가한다.
+최초 설치는 이 환경에서 검사한다. 이전·업데이트 시나리오는 후속으로 추가한다.
+
+## 설치형 Sobaya 통합 검사
+
+새 설치본과 Sobaya 공개 런타임의 연결은 별도 통합 검사로 실행한다:
+
+```sh
+SOBAYA_TEST_ASSETS=/absolute/path/to/verified-rc1-assets \
+  node --test tests/petra-sobaya.test.mjs
+```
+
+리포 안의 테스트 코드가 임시 앱·원격·clone·worktree를 만들고 정리한다. 별도 GitHub 프로젝트는 필요 없다.
+`PETRA_KEEP_TEST_EVIDENCE=1`이면 출력된 임시 경로를 보존해 실패 원인을 확인할 수 있다.
+Linux/macOS의 PETRA CI도 같은 검사를 실행한다. 공개 자산 준비와 검증 범위는 [PETRA + Sobaya](petra-sobaya.md)를 따른다.
+기본 `petra-lab.sh test`는 공개 Sobaya 자산 없이도 실행되며 이 통합 검사를 포함하지 않는다.
 
 ## 관리 위치
 
@@ -71,6 +85,7 @@ tests/fixtures/shop/       버전 관리되는 작은 쇼핑몰 원본
 tests/support/            로컬·CI 공통 Git 환경 준비
 tests/petra.sh            두 clone 협업 시나리오 26개
 tests/petra-install.test.mjs 최초 설치·보존·실패 처리
+tests/petra-sobaya.test.mjs 설치된 PETRA와 공개 Sobaya 연결·개발 루프
 tests/petra-lab.sh        재사용·초기화·자동 검사 보존 11개 + 협업 시나리오
 scripts/petra-lab.sh      up / status / reset / test
 .petra-lab/               생성한 실제 작업 공간과 결과 (커밋 제외)
