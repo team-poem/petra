@@ -5,6 +5,11 @@
 
 ## PETRA 첫 구현
 
+이 리포 안에서 바로 테스트하려면 `sh scripts/petra-lab.sh up`으로 solp·amazon 작업 공간을 준비한다.
+`sh scripts/petra-lab.sh test`는 같은 쇼핑몰 원본으로 자동 협업 검사를 실행한다.
+원본은 `tests/fixtures/shop/`, 생성물은 커밋되지 않는 `.petra-lab/`에 있으며 PR의 Linux/macOS CI도 같은 절차를 사용한다.
+재사용·초기화와 실제 에이전트 실행은 [내부 테스트 환경](docs/petra-lab.md)을 따른다.
+
 제작 리포의 구조와 소비 프로젝트의 구조를 분리하는 개발용 패키지를 구현 중이다.
 `sh bin/petra pack <존재하지 않는 staging 경로>`는 실행 코드·빈 기록 골격·Git 훅만 묶는다.
 소비 프로젝트에서는 `sh .petra/bin/petra join <핸들>`로 합류하고 같은 협업 CLI를 사용한다.

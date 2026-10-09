@@ -1,6 +1,7 @@
 name: harness-check
 on:
   pull_request:
+  workflow_dispatch:
   push:
     branches: [main]
 jobs:
@@ -12,8 +13,6 @@ jobs:
       - run: sh tests/hooks.sh
       - run: sh tests/loop.sh
       - run: sh tests/sobaya.sh
-      - name: PETRA 첫 소비 배치 · 두 clone 협업 검증
-        run: sh tests/petra.sh
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - uses: actions/checkout@v4
@@ -58,6 +57,34 @@ jobs:
           SOBAYA_TEST_ASSETS: ${{ runner.temp }}/sobaya-rc1-assets
           SOBAYA_TEST_SOURCE: ${{ github.workspace }}/.sobaya-test-source
         run: bash tests/sobaya-mixed-mode.sh all
+  petra:
+    name: PETRA 내부 실험실 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    permissions: { contents: read }
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: 실험실 재사용·초기화와 두 clone 협업 검증
+        env: { PETRA_LAB_TEST_NAME: ci }
+        run: sh tests/petra-lab.sh
+      - name: 실행 결과·진단 로그 보관
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: petra-lab-${{ matrix.os }}
+          path: |
+            .petra-lab/ci/runs/test.*/result.json
+            .petra-lab/ci/runs/test.*/test.log
+            .petra-lab/ci/runs/test.*/fixture/*.out
+            .petra-lab/ci/runs/test.*/fixture/target.json
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: warn
   collab:
     name: 협업 규칙 검사
     if: github.event_name == 'pull_request'

@@ -4,7 +4,7 @@ owner: solp
 started: 2026-10-09
 status: done
 goal: PETRA 소비 배치와 두 clone의 첫 협업 흐름을 구현하고 검증한다
-next: 프로젝트·실행 코드 경로 분리, 임시 쇼핑몰 배포와 협업 회귀 검증
+next: 리포 내부의 재사용 실험실과 Linux/macOS CI, 실행 결과 보관
 ---
 
 ## 메모

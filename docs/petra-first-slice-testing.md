@@ -14,6 +14,17 @@ manifest는 개발 버전, 소스 커밋, 소스 작업 트리 변경 여부, �
 
 ## 두 사람 없이 먼저 하는 테스트
 
+반복해서 사용할 환경은 [내부 테스트 환경](petra-lab.md)에서 제공한다.
+
+```sh
+sh scripts/petra-lab.sh up
+sh scripts/petra-lab.sh test
+```
+
+실험실은 이 리포의 `.petra-lab/` 안에 남고, `up` 재실행으로 같은 수동 작업을 이어간다.
+매 PR의 Linux/macOS CI는 환경 수명 11개와 협업 26개 검사를 실행하고 결과 아티팩트를 보관한다.
+단독 임시 검사도 계속 지원한다.
+
 ```sh
 sh tests/petra.sh
 ```
@@ -47,6 +58,7 @@ JSON 설정 파일이 존재한다는 이유만으로 자동 훅 지원이 검�
 ### 2026-10-09 실행 기록
 
 - 소비 시나리오 26개와 기존 회귀 191개를 로컬에서 실행했다. 기존 CI fixture의 실제 겹침 데이터 수정 외에 Sobaya 승인 테스트는 변경하지 않았다.
+- 최초 PR의 Linux CI에서는 GITHUB_HEAD_REF가 테스트 쇼핑몰에도 전달돼 PR 검사가 다른 브랜치 claim을 찾으며 실패했다. 내부 실험실 작업에서 CI 환경을 격리하고, 실패한 검사 출력도 로그에 남기도록 수정했다. 위 로컬 통과 기록과 최초 원격 CI 결과는 구분한다.
 - 실제 Codex exec 세션은 앱 계약을 읽고 PETRA digest를 실행했다. amazon의 KRW 답변, 동료 목표, 미머지 파일과 중복 구현 방지 행동을 정확히 보고했다.
 - 이 Codex smoke 환경은 Git 캐시 디렉토리만 추가 쓰기 경로로 허용했다. fetch는 sandbox에서 실패했고 Codex는 현황이 오래됐을 수 있다고 명시했다. 따라서 실제 Codex의 최신 원격 갱신까지 성공한 검증으로 세지 않는다. 자동화 두 clone 테스트의 fetch는 성공했다.
 - 실제 Claude Code 2.1.258의 SessionStart 이벤트에는 PETRA 계약과 가격 함수의 currency 변경 이벤트가 정상 주입됐다. 이후 모델 호출은 조직의 Claude Code 구독 접근 금지(`oauth_org_not_allowed`, 403)로 중단됐다. Claude의 이해·응답 행동은 아직 미검증이다. 계정이나 조직 설정은 바꾸지 않았다.
