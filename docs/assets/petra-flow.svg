@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="790" viewBox="0 0 760 790" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">PETRA: parallel development, coordination during work</title>
+  <desc id="desc">Poem teammates develop on separate branches using Sobaya Inner Loops. While both keep working, PETRA shares uncommitted edits through Git, checks overlapping edits and journal events, and brings coordination back into development. Verified changes go through PR review and merge.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1L5 3.5L1 6" stroke="#A4B5AF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+    <marker id="green-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1L6 4L1 7" stroke="#9BD8BE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  </defs>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; letter-spacing: 0; }
+    .flow { stroke-dasharray: 6 9; animation: flow 1.8s linear infinite; }
+    .second { animation-delay: -.9s; }
+    .cycle { stroke-dasharray: 12 248; animation: cycle 5s linear infinite; }
+    .cycle-second { animation-delay: -2.5s; }
+    @keyframes flow { from { stroke-dashoffset: 30; } to { stroke-dashoffset: 0; } }
+    @keyframes cycle { from { stroke-dashoffset: 260; } to { stroke-dashoffset: 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .flow, .cycle { animation: none; }
+      .cycle { stroke-dasharray: none; }
+    }
+  </style>
+
+  <rect width="760" height="790" rx="6" fill="#111617"/>
+  <text x="36" y="56" font-size="34" font-weight="700" fill="#F3F3ED">PETRA</text>
+  <text x="724" y="54" font-size="25" text-anchor="end" fill="#9BD8BE">Outer Loop</text>
+  <text x="36" y="99" font-size="25" fill="#BCC8C4">Develop in parallel. Coordinate as you go.</text>
+
+  <text x="198" y="154" text-anchor="middle" font-size="23" fill="#F3F3ED">Developer A / branch A</text>
+  <text x="562" y="154" text-anchor="middle" font-size="23" fill="#F3F3ED">Developer B / branch B</text>
+
+  <g transform="translate(36 176)">
+    <rect width="324" height="204" rx="6" stroke="#52625A"/>
+    <text x="22" y="39" font-size="29" font-weight="600" fill="#F3F3ED">Sobaya</text>
+    <text x="22" y="69" font-size="23" fill="#DEAE98">Inner Loop</text>
+    <text x="22" y="108" font-size="22" fill="#BCC8C4">Approved tests</text>
+    <text x="22" y="149" font-size="25" font-weight="600" fill="#F2A398">RED</text>
+    <text x="110" y="149" font-size="25" fill="#F3F3ED">Code</text>
+    <text x="208" y="149" font-size="25" font-weight="600" fill="#9BD8BE">GREEN</text>
+    <g stroke="#A4B5AF" stroke-width="1.5" marker-end="url(#arrow)"><path d="M78 141H100"/><path d="M176 141H198"/><path d="M255 166V184H48V166"/></g>
+    <path class="cycle" d="M255 166V184H48V166" stroke="#9BD8BE" stroke-width="2"/>
+  </g>
+  <g transform="translate(400 176)">
+    <rect width="324" height="204" rx="6" stroke="#52625A"/>
+    <text x="22" y="39" font-size="29" font-weight="600" fill="#F3F3ED">Sobaya</text>
+    <text x="22" y="69" font-size="23" fill="#DEAE98">Inner Loop</text>
+    <text x="22" y="108" font-size="22" fill="#BCC8C4">Approved tests</text>
+    <text x="22" y="149" font-size="25" font-weight="600" fill="#F2A398">RED</text>
+    <text x="110" y="149" font-size="25" fill="#F3F3ED">Code</text>
+    <text x="208" y="149" font-size="25" font-weight="600" fill="#9BD8BE">GREEN</text>
+    <g stroke="#A4B5AF" stroke-width="1.5" marker-end="url(#arrow)"><path d="M78 141H100"/><path d="M176 141H198"/><path d="M255 166V184H48V166"/></g>
+    <path class="cycle cycle-second" d="M255 166V184H48V166" stroke="#9BD8BE" stroke-width="2"/>
+  </g>
+
+  <!-- Snapshots are exchanged during work, independently of the PR below. -->
+  <g stroke="#9BD8BE" stroke-width="2" marker-end="url(#green-arrow)">
+    <path class="flow" d="M198 386V419H356V436"/>
+    <path class="flow second" d="M562 386V419H404V436"/>
+  </g>
+  <text x="380" y="468" text-anchor="middle" font-size="29" font-weight="600" fill="#F3F3ED">Share work in progress</text>
+  <text x="380" y="503" text-anchor="middle" font-size="23" fill="#BCC8C4">Git snapshots · before commit</text>
+  <path class="flow" d="M380 518V535H215V547" stroke="#9BD8BE" stroke-width="2" marker-end="url(#green-arrow)"/>
+
+  <text x="215" y="578" text-anchor="middle" font-size="27" font-weight="600" fill="#F3F3ED">Check overlaps</text>
+  <text x="215" y="612" text-anchor="middle" font-size="22" fill="#BCC8C4">Edits + journal events</text>
+  <path d="M327 570H449" stroke="#DEAE98" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="570" y="578" text-anchor="middle" font-size="27" font-weight="600" fill="#DEAE98">Coordinate</text>
+  <text x="570" y="612" text-anchor="middle" font-size="22" fill="#BCC8C4">Where work overlaps</text>
+
+  <!-- Both workstreams receive context and keep developing, not just at handoff. -->
+  <path d="M215 625V648H570V625" stroke="#9BD8BE" stroke-width="1.5"/>
+  <path class="flow" d="M380 648H18V270H35" stroke="#9BD8BE" stroke-width="1.5" marker-end="url(#green-arrow)"/>
+  <path class="flow second" d="M380 648H742V270H725" stroke="#9BD8BE" stroke-width="1.5" marker-end="url(#green-arrow)"/>
+  <text x="380" y="685" text-anchor="middle" font-size="24" fill="#9BD8BE">Keep independent work moving</text>
+
+  <path d="M36 716H724" stroke="#42514B"/>
+  <text x="380" y="757" text-anchor="middle" font-size="23" fill="#BCC8C4">Verified changes → PR → Review → Merge</text>
+</svg>

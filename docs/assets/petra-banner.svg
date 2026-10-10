@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="300" viewBox="0 0 960 300" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">PETRA by Poem</title>
+  <desc id="desc">Poem’s Engineering, Testing &amp; Review Assistant. A white quill becomes pixels that travel along two connected paths.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; letter-spacing: 0; }
+    .pixel { animation: pixel 6s ease-in-out infinite; }
+    .p2 { animation-delay: -.8s; }
+    .p3 { animation-delay: -1.6s; }
+    .p4 { animation-delay: -2.4s; }
+    .trace { stroke-dasharray: 8 560; animation: trace 8s linear infinite; }
+    .trace-alt { animation-delay: -4s; }
+    @keyframes pixel { 0%, 70%, 100% { opacity: 1; transform: translateY(0); } 35% { opacity: .25; transform: translateY(4px); } }
+    @keyframes trace { from { stroke-dashoffset: 568; } to { stroke-dashoffset: 0; } }
+    @media (prefers-reduced-motion: reduce) { .pixel, .trace { animation: none; } .trace { stroke-dasharray: none; opacity: .35; } }
+  </style>
+
+  <rect width="960" height="300" rx="6" fill="#111617"/>
+  <path d="M32 28H64M32 28V60M928 240V272H896" stroke="#42504F"/>
+
+  <!-- The quill and broken pixels echo the Poem team mark. -->
+  <g transform="translate(58 6) scale(1.4)" fill="#F3F3ED">
+    <path d="M76 87C79 76 82 68 87 62L86 74C90 57 97 47 106 40L105 50C110 38 117 30 124 27L121 37C126 24 137 21 146 19C147 26 144 34 139 40L130 43L141 41C137 50 131 57 123 62L115 61L127 62C120 72 114 78 104 81L95 80L111 83C103 91 94 95 84 92L80 96L82 84Z"/>
+    <path d="M62 123C79 88 103 58 133 31C104 62 82 93 68 126Z"/>
+    <path d="M72 94L79 93L76 99L72 100L69 116L65 119Z"/>
+    <path d="M59 121L72 125L70 130L58 126Z"/>
+    <path d="M57 130L69 134L66 151L56 168L60 148L57 145L48 167L49 151L47 143Z"/>
+    <path d="M57 145L59 142L62 145L60 149Z" fill="#111617"/>
+    <path d="M80 99L87 97L87 103L81 103L75 112L76 105Z"/>
+    <g class="pixel"><path d="M88 96H94V102H88ZM92 104H98V110H92ZM83 112H89V118H83Z"/></g>
+    <g class="pixel p2"><path d="M96 115H102V121H96ZM102 121H108V127H102ZM89 125H95V131H89ZM94 132H101V139H94Z"/></g>
+    <g class="pixel p3"><path d="M104 133H110V139H104ZM88 141H94V147H88ZM100 144H107V151H100ZM110 145H116V151H110Z"/></g>
+    <g class="pixel p4"><path d="M95 153H102V160H95ZM105 159H111V165H105ZM116 153H122V159H116ZM113 165H119V171H113ZM88 164H93V169H88Z"/></g>
+  </g>
+
+  <text x="328" y="150" font-size="98" font-weight="700" fill="#F3F3ED">PETRA</text>
+  <text x="333" y="196" font-size="27" font-weight="500" fill="#BCC8C4">
+    <tspan x="333">Poem’s Engineering,</tspan>
+    <tspan x="333" dy="34">Testing &amp; Review Assistant</tspan>
+  </text>
+  <text x="60" y="273" font-size="16" font-weight="600" fill="#8C9F99">POEM</text>
+
+  <g stroke-width="2">
+    <path d="M230 248H296L316 258H850L882 240H904" stroke="#2D3D38"/>
+    <path d="M244 267H306L326 278H860L892 260H904" stroke="#3F3834"/>
+    <path class="trace" d="M230 248H296L316 258H850L882 240H904" stroke="#9BD8BE"/>
+    <path class="trace trace-alt" d="M244 267H306L326 278H860L892 260H904" stroke="#DEAE98"/>
+  </g>
+  <path d="M902 237H908V243H902Z" fill="#9BD8BE"/>
+  <path d="M902 257H908V263H902Z" fill="#DEAE98"/>
+</svg>
